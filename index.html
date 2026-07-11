@@ -208,21 +208,26 @@
     }
     // -----------------------------------
 
-    // UPDATED API CALL TO USE 'GET' AND AVOID CORS ERRORS
+    // UPDATED API CALL TO BYPASS CORS
     async function apiCall(action, payload = {}) {
+      const data = { action: action, user: currentUserEmail, ...payload };
       try {
-        const queryParams = new URLSearchParams({
-          action: action,
-          user: currentUserEmail,
-          payload: JSON.stringify(payload)
-        }).toString();
-
-        const response = await fetch(`${API_URL}?${queryParams}`);
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            // Sending as plain text skips the strict CORS preflight check
+            'Content-Type': 'text/plain;charset=utf-8', 
+          },
+          body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) throw new Error("Network response was not ok");
+        
         const result = await response.json();
         renderData(result);
       } catch (error) {
-        console.error("API Error:", error);
-        alert("Failed to sync with database.");
+        console.error("API Error Details:", error);
+        alert("Failed to sync with database. Check console for details.");
       }
     }
 
