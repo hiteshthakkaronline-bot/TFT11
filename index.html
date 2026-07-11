@@ -275,12 +275,22 @@
 
       const sortedData = [...appData].sort((a,b) => new Date(b.Date) - new Date(a.Date));
 
-      sortedData.forEach(row => {
+        sortedData.forEach(row => {
         const rowDate = new Date(row.Date);
         const dateStr = rowDate.getFullYear() + '-' + String(rowDate.getMonth() + 1).padStart(2, '0') + '-' + String(rowDate.getDate()).padStart(2, '0');
         
-        const displayDate = rowDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' });
+        const displayDate = rowDate.toLocaleDateString('en-GB', { 
+          day: '2-digit', 
+          month: 'short', 
+          year: 'numeric',
+          timeZone: 'Asia/Kolkata' 
+        });
+        
+        const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { 
+          hour: '2-digit', 
+          minute:'2-digit',
+          timeZone: 'Asia/Kolkata' 
+        });
         
         if (rowDate.getMonth() === currentMonth && rowDate.getFullYear() === currentYear) {
           currentMonthTotal += Number(row['Total (Calculated)']) || 0; 
