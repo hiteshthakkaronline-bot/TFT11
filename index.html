@@ -113,7 +113,8 @@
           <div class="input-group"><label>Date</label><input type="date" id="entryDate" required></div>
           <div class="input-group"><label>Credit (₹)</label><input type="number" id="credit" value="0" step="any"></div>
           <div class="input-group"><label>UPI (₹)</label><input type="number" id="upi" value="0" step="any"></div>
-          <div class="input-group"><label>Cash (₹)</label><input type="number" id="cash" value="0" step="any"></div>
+          <!-- UPDATE 1: Label changed from Cash Amount to Cash Counted -->
+          <div class="input-group"><label>Cash Counted (₹)</label><input type="number" id="cashCounted" value="0" step="any"></div>
           <div class="input-group"><label>Total (₹)</label><input type="number" id="total" disabled value="0"></div>
         </div>
         <button class="add-btn" onclick="saveEntry()">+</button>
@@ -126,11 +127,12 @@
         </div>
         <div class="table-container">
           <table>
+            <!-- UPDATE 2: First Header renamed to Cash to showcase final Cash Amount calculations -->
             <thead>
               <tr>
-                <th>Credit</th>
-                <th>UPI</th>
                 <th>Cash</th>
+                <th>UPI</th>
+                <th>Credit</th>
                 <th>Total</th>
                 <th style="text-align: center;">Actions</th>
               </tr>
@@ -152,7 +154,7 @@
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; // Ensure this stays populated
+    const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
     let appData = [];
     let currentUserEmail = localStorage.getItem('tft_user_email') || "";
@@ -160,7 +162,6 @@
     let currentUserPic = localStorage.getItem('tft_user_pic') || "";
 
     window.onload = function() {
-      // Set today's date safely in local time to avoid timezone offset issues on load
       const nowInit = new Date();
       const todayInit = nowInit.getFullYear() + '-' + String(nowInit.getMonth() + 1).padStart(2, '0') + '-' + String(nowInit.getDate()).padStart(2, '0');
       document.getElementById('entryDate').value = todayInit;
@@ -221,19 +222,14 @@
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(data)
         });
-        
         const result = await response.json();
-        
         if (result.error) {
-          console.error("Google Apps Script Error:", result.error);
           alert("Database Error: " + result.error);
           return;
         }
-        
         renderData(result);
       } catch (error) {
-        console.error("Network Error Details:", error);
-        alert("Network Error: Could not reach the database. Check console (F12) for details.");
+        alert("Network Error: Could not reach the database.");
       }
     }
 
@@ -246,12 +242,18 @@
     }
 
     function calcTotal() {
+      const credit = Number(document.getElementById('credit').value) || 0;
       const upi = Number(document.getElementById('upi').value) || 0;
-      const cash = Number(document.getElementById('cash').value) || 0;
-      document.getElementById('total').value = upi + cash;
+      const cashCounted = Number(document.getElementById('cashCounted').value) || 0;
+      
+      const formulaCash = cashCounted - credit;
+      const formulaTotal = formulaCash + upi + credit; 
+      
+      document.getElementById('total').value = formulaTotal;
     }
+    document.getElementById('credit').addEventListener('input', calcTotal);
     document.getElementById('upi').addEventListener('input', calcTotal);
-    document.getElementById('cash').addEventListener('input', calcTotal);
+    document.getElementById('cashCounted').addEventListener('input', calcTotal);
 
     function renderData(response) {
       if(!response || !response.rows) return;
@@ -261,29 +263,33 @@
       let currentMonthTotal = 0;
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
-      
+
       const sortedData = [...appData].sort((a,b) => new Date(b.Date) - new Date(a.Date));
 
       sortedData.forEach(row => {
         const rowDate = new Date(row.Date);
-        const displayDate = rowDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' });
+        const displayDate = rowDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+        const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit', timeZone: 'Asia/Kolkata' });
         
+        const creditVal = Number(row['Credit Amount']) || 0;
+        const upiVal = Number(row['UPI Amount']) || 0;
+        const cashAmountVal = Number(row['Cash Amount']) || 0;
+        const calculatedTotal = Number(row['Total (Calculated)']) || 0;
+
         if (rowDate.getMonth() === currentMonth && rowDate.getFullYear() === currentYear) {
-          currentMonthTotal += Number(row['Total (Calculated)']) || 0; 
+          currentMonthTotal += calculatedTotal; 
         }
 
         const isOwner = row['User Email'].toLowerCase() === currentUserEmail;
-        // REMOVED: isPastDate check. Now only ownership determines if the record is editable.
-        const canEditAmounts = isOwner; 
         const rowUser = row['User Email'].split('@')[0];
 
+        // Column Layout: Cash Amount -> UPI -> Credit -> Total -> Actions
         html += `
           <tr class="data-row">
-            <td>₹${row['Credit Amount']}</td>
-            <td>₹${row['UPI Amount']}</td>
-            <td>₹${row['Cash Amount']}</td>
-            <td class="td-amount">₹${row['Total (Calculated)']}</td>
+            <td>₹${cashAmountVal}</td>
+            <td>₹${upiVal}</td>
+            <td>₹${creditVal}</td>
+            <td class="td-amount">₹${calculatedTotal}</td>
             <td>
               <div class="action-icons">
                 ${isOwner ? `
@@ -312,8 +318,6 @@
 
     function saveEntry() {
       const selectedDate = document.getElementById('entryDate').value;
-      
-      // Strict Check: Look for an existing record for the selected date
       const existingEntry = appData.find(row => {
         const rowD = new Date(row.Date);
         const dStr = rowD.getFullYear() + '-' + String(rowD.getMonth() + 1).padStart(2, '0') + '-' + String(rowD.getDate()).padStart(2, '0');
@@ -321,7 +325,6 @@
       });
 
       if (existingEntry) {
-        // Warning provided and action blocked
         alert("A record for this date already exists. You cannot create another entry for the same date.");
         return; 
       }
@@ -330,28 +333,28 @@
         date: selectedDate,
         credit: document.getElementById('credit').value || 0,
         upi: document.getElementById('upi').value || 0,
-        cash: document.getElementById('cash').value || 0
+        cashCounted: document.getElementById('cashCounted').value || 0
       };
       
       document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">Saving...</td></tr>';
       apiCall('add', { record: record });
       
-      // Reset form
       document.getElementById('credit').value = 0;
       document.getElementById('upi').value = 0;
-      document.getElementById('cash').value = 0;
+      document.getElementById('cashCounted').value = 0;
       document.getElementById('total').value = 0;
     }
 
+    // UPDATE 3: Edit window prompts for "Cash Counted" raw values directly
     function editPrompt(id) {
       const row = appData.find(r => r['Row ID'] === id);
       const newCredit = prompt("Edit Credit Amount:", row['Credit Amount']); if(newCredit === null) return;
       const newUpi = prompt("Edit UPI Amount:", row['UPI Amount']); if(newUpi === null) return;
-      const newCash = prompt("Edit Cash Amount:", row['Cash Amount']); if(newCash === null) return;
+      const newCashCounted = prompt("Edit Cash Counted:", row['Cash Counted']); if(newCashCounted === null) return;
 
       const record = {
         date: new Date(row.Date).toISOString().split('T')[0],
-        credit: newCredit, upi: newUpi, cash: newCash
+        credit: newCredit, upi: newUpi, cashCounted: newCashCounted
       };
       
       document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">Updating...</td></tr>';
@@ -382,12 +385,12 @@
       const monthlyData = {};
       appData.forEach(row => {
         const date = new Date(row.Date);
-        const monthYear = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+        const monthYear = date.toLocaleString('default', { month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
         if(!monthlyData[monthYear]) monthlyData[monthYear] = { credit: 0, upi: 0, cash: 0 };
         
-        monthlyData[monthYear].credit += Number(row['Credit Amount']);
-        monthlyData[monthYear].upi += Number(row['UPI Amount']);
-        monthlyData[monthYear].cash += Number(row['Cash Amount']);
+        monthlyData[monthYear].credit += Number(row['Credit Amount']) || 0;
+        monthlyData[monthYear].upi += Number(row['UPI Amount']) || 0;
+        monthlyData[monthYear].cash += Number(row['Cash Amount']) || 0; 
       });
 
       const labels = Object.keys(monthlyData);
@@ -402,8 +405,8 @@
         data: {
           labels: labels,
           datasets: [
-            { label: 'UPI', data: upiData, backgroundColor: '#3b82f6' },
             { label: 'Cash', data: cashData, backgroundColor: '#10b981' },
+            { label: 'UPI', data: upiData, backgroundColor: '#3b82f6' },
             { label: 'Credit', data: creditData, backgroundColor: '#8b5cf6' }
           ]
         },
