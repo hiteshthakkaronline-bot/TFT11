@@ -208,26 +208,30 @@
     }
     // -----------------------------------
 
-    // UPDATED API CALL TO BYPASS CORS
-    async function apiCall(action, payload = {}) {
+  async function apiCall(action, payload = {}) {
       const data = { action: action, user: currentUserEmail, ...payload };
       try {
         const response = await fetch(API_URL, {
           method: 'POST',
           headers: {
-            // Sending as plain text skips the strict CORS preflight check
             'Content-Type': 'text/plain;charset=utf-8', 
           },
           body: JSON.stringify(data)
         });
         
-        if (!response.ok) throw new Error("Network response was not ok");
-        
         const result = await response.json();
+        
+        // If the backend caught an error, display it clearly
+        if (result.error) {
+          console.error("Google Apps Script Error:", result.error);
+          alert("Database Error: " + result.error);
+          return;
+        }
+        
         renderData(result);
       } catch (error) {
-        console.error("API Error Details:", error);
-        alert("Failed to sync with database. Check console for details.");
+        console.error("Network Error Details:", error);
+        alert("Network Error: Could not reach the database. Check console (F12) for details.");
       }
     }
 
