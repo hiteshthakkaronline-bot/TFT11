@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TFT 11</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Identity Services Library -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root {
+      --bg-color: #f4f6f9; --card-bg: #ffffff; --text-main: #1e293b;
+      --text-muted: #64748b; --border-color: #e2e8f0; --primary-blue: #2563eb;
+      --primary-blue-hover: #1d4ed8; --danger-red: #ef4444; --input-bg: #ffffff;
+    }
+    [data-theme="dark"] {
+      --bg-color: #0f172a; --card-bg: #1e293b; --text-main: #f8fafc;
+      --text-muted: #94a3b8; --border-color: #334155; --primary-blue: #3b82f6; --input-bg: #0f172a;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 16px; padding-bottom: 90px; transition: background-color 0.3s, color 0.3s; }
+    .card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: background-color 0.3s; }
+    
+    /* Login Screen Overlay */
+    #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
+    #app-content { display: none; } /* Hidden until logged in */
+
+    .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); }
+    .user-info { display: flex; align-items: center; gap: 12px; }
+    .avatar { width: 44px; height: 44px; background-color: var(--primary-blue); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; overflow: hidden; }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .greeting { font-size: 13px; color: var(--text-muted); margin: 0; }
+    .user-name { font-size: 18px; font-weight: 700; margin: 0; }
+    .header-actions { display: flex; gap: 16px; align-items: center; }
+    .icon-btn { background: none; border: none; cursor: pointer; font-size: 22px; color: var(--text-main); padding: 0; }
+    h3 { margin-top: 0; font-size: 18px; margin-bottom: 16px; }
+    .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .input-group { display: flex; flex-direction: column; gap: 4px; }
+    label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+    input { padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-main); font-size: 14px; width: 100%; box-sizing: border-box; }
+    input:disabled { opacity: 0.7; }
+    .add-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; width: 100%; padding: 12px; font-size: 24px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .table-container { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 400px; }
+    th { text-align: left; padding: 12px 8px; font-size: 12px; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
+    td { padding: 12px 8px; border-bottom: 1px solid var(--border-color); font-size: 14px; vertical-align: middle; }
+    .td-date { font-weight: 500; }
+    .td-user { font-size: 11px; color: var(--primary-blue); margin-top: 4px; }
+    .td-amount { font-weight: 700; }
+    .action-icons { display: flex; gap: 8px; }
+    .action-btn { background: none; border: 1px solid; border-radius: 4px; padding: 6px; cursor: pointer; display: flex; align-items: center; }
+    .edit-btn { color: var(--primary-blue); border-color: var(--primary-blue); }
+    .del-btn { color: var(--danger-red); border-color: var(--danger-red); }
+    
+    .fab-menu { position: fixed; bottom: 24px; right: 24px; background: var(--primary-blue); color: white; border-radius: 50%; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); cursor: pointer; z-index: 1000; transition: transform 0.2s; }
+    .fab-menu:active { transform: scale(0.95); }
+    #dashboard-section { display: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Google Login Screen -->
+  <div id="login-screen">
+    <div class="card" style="text-align: center; padding: 30px;">
+      <h2>TFT 11</h2>
+      <p style="color: var(--text-muted); margin-bottom: 20px;">Please sign in to continue</p>
+      <div id="g_id_onload"
+           data-client_id="655668295950-mr71s07boak5mne39ujqiaobob0kdvau.apps.googleusercontent.com"
+           data-context="signin"
+           data-ux_mode="popup"
+           data-callback="handleCredentialResponse"
+           data-auto_prompt="false">
+      </div>
+      <div class="g_id_signin"
+           data-type="standard"
+           data-shape="rectangular"
+           data-theme="outline"
+           data-text="signin_with"
+           data-size="large"
+           data-logo_alignment="left">
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App Content (Hidden until auth) -->
+  <div id="app-content">
+    <header class="app-header">
+      <div class="user-info">
+        <div class="avatar" id="userAvatar">U</div>
+        <div>
+          <p class="greeting">Hello,</p>
+          <p class="user-name" id="userNameDisplay">User 👋</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" onclick="toggleTheme()" id="themeIcon">🌙</button>
+        <button class="icon-btn" style="color: var(--danger-red);" onclick="logout()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        </button>
+      </div>
+    </header>
+
+    <div id="main-section">
+      <div class="card">
+        <h3>Log Amounts</h3>
+        <div class="input-grid">
+          <div class="input-group"><label>Date</label><input type="date" id="entryDate" required></div>
+          <div class="input-group"><label>Credit (₹)</label><input type="number" id="credit" value="0" step="any"></div>
+          <div class="input-group"><label>UPI (₹)</label><input type="number" id="upi" value="0" step="any"></div>
+          <div class="input-group"><label>Cash (₹)</label><input type="number" id="cash" value="0" step="any"></div>
+          <div class="input-group"><label>Total (₹)</label><input type="number" id="total" disabled value="0"></div>
+        </div>
+        <button class="add-btn" onclick="saveEntry()">+</button>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3>Recent Records</h3>
+          <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;" id="month-calc">Mtd Total: ₹0</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>Date</th><th>Amounts</th><th>Total</th><th>Actions</th></tr></thead>
+            <tbody id="data-list-body"><tr><td colspan="4" style="text-align: center;">Loading data...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="dashboard-section" class="card">
+      <h3>Monthly Overview</h3>
+      <canvas id="monthlyChart"></canvas>
+    </div>
+
+    <div class="fab-menu" onclick="toggleDashboard()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+    </div>
+  </div>
+
+  <script>
+    // --- CONFIGURATION ---
+    const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; // Apps Script Code.gs URL
+    // ---------------------
+
+    let appData = [];
+    let currentUserEmail = "";
+    
+    // --- GOOGLE AUTHENTICATION LOGIC ---
+    function handleCredentialResponse(response) {
+      // Decode the JWT token sent back by Google
+      const responsePayload = decodeJwtResponse(response.credential);
+      
+      currentUserEmail = responsePayload.email.toLowerCase();
+      const userName = responsePayload.given_name || responsePayload.name.split(' ')[0];
+      const userPicture = responsePayload.picture;
+
+      // Update UI with Google Profile details
+      document.getElementById('userNameDisplay').innerText = userName + " 👋";
+      if (userPicture) {
+        document.getElementById('userAvatar').innerHTML = `<img src="${userPicture}" alt="Profile" referrerpolicy="no-referrer">`;
+      } else {
+        document.getElementById('userAvatar').innerText = userName.charAt(0).toUpperCase();
+      }
+
+      // Hide login, show app, and fetch data
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app-content').style.display = 'block';
+      apiCall('get');
+    }
+
+    // Helper to decode JWT without external libraries
+    function decodeJwtResponse(token) {
+      let base64Url = token.split('.')[1];
+      let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      let jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    }
+
+    function logout() {
+      // Reload page to return to Google Sign in prompt
+      location.reload();
+    }
+    // -----------------------------------
+
+    async function apiCall(action, payload = {}) {
+      const data = { action, user: currentUserEmail, ...payload };
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        renderData(result);
+      } catch (error) {
+        console.error("API Error:", error);
+        alert("Failed to sync with database.");
+      }
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      const newTheme = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', newTheme);
+      document.getElementById('themeIcon').innerText = newTheme === 'light' ? '🌙' : '☀️';
+      if(myChart) renderChart();
+    }
+
+    document.getElementById('entryDate').valueAsDate = new Date();
+
+    function calcTotal() {
+      const upi = Number(document.getElementById('upi').value) || 0;
+      const cash = Number(document.getElementById('cash').value) || 0;
+      document.getElementById('total').value = upi + cash;
+    }
+    document.getElementById('upi').addEventListener('input', calcTotal);
+    document.getElementById('cash').addEventListener('input', calcTotal);
+
+    function renderData(response) {
+      if(!response || !response.rows) return;
+      appData = response.rows;
+
+      let html = '';
+      let currentMonthTotal = 0;
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      
+      const dateCounts = {};
+      appData.forEach(row => {
+        const d = new Date(row.Date).toISOString().split('T')[0];
+        dateCounts[d] = (dateCounts[d] || 0) + 1;
+      });
+
+      const sortedData = [...appData].sort((a,b) => new Date(b.Date) - new Date(a.Date));
+
+      sortedData.forEach(row => {
+        const rowDate = new Date(row.Date);
+        const dateStr = rowDate.toISOString().split('T')[0];
+        const displayDate = rowDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'numeric' });
+        const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' });
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        if (rowDate.getMonth() === currentMonth && rowDate.getFullYear() === currentYear) {
+          currentMonthTotal += Number(row['Total']);
+        }
+
+        const isOwner = row['User Email'].toLowerCase() === currentUserEmail;
+        const isPastDate = dateStr < todayStr;
+        const hasDuplicates = dateCounts[dateStr] > 1;
+        const canEditAmounts = isOwner && !isPastDate;
+        const rowUser = row['User Email'].split('@')[0];
+
+        html += `
+          <tr>
+            <td>
+              <div class="td-date">${displayDate} ${timeStr}</div>
+              <div class="td-user">${rowUser}</div>
+            </td>
+            <td>
+              <div style="font-size:12px">C: ₹${row['Credit Amount']}</div>
+              <div style="font-size:12px">U: ₹${row['UPI Amount']}</div>
+              <div style="font-size:12px">C: ₹${row['Cash Amount']}</div>
+            </td>
+            <td class="td-amount">₹${row['Total']}</td>
+            <td>
+              <div class="action-icons">
+                ${isOwner && canEditAmounts ? `
+                  <button class="action-btn edit-btn" onclick="editPrompt('${row['Row ID']}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  </button>
+                  <button class="action-btn del-btn" onclick="deleteRow('${row['Row ID']}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+      
+      document.getElementById('data-list-body').innerHTML = html || '<tr><td colspan="4" style="text-align:center;">No records yet</td></tr>';
+      document.getElementById('month-calc').innerText = 'Mtd Total: ₹' + currentMonthTotal;
+      if (dashboardOpen) renderChart();
+    }
+
+    function saveEntry() {
+      const date = document.getElementById('entryDate').value;
+      const existingToday = appData.find(row => new Date(row.Date).toISOString().split('T')[0] === date);
+      if (existingToday) {
+        if (!confirm("A record for this date already exists. Do you still want to proceed?")) return;
+      }
+
+      const record = {
+        date: date,
+        credit: document.getElementById('credit').value || 0,
+        upi: document.getElementById('upi').value || 0,
+        cash: document.getElementById('cash').value || 0
+      };
+      
+      document.getElementById('data-list-body').innerHTML = '<tr><td colspan="4" style="text-align: center;">Saving...</td></tr>';
+      apiCall('add', { record: record });
+      
+      document.getElementById('credit').value = 0;
+      document.getElementById('upi').value = 0;
+      document.getElementById('cash').value = 0;
+      document.getElementById('total').value = 0;
+    }
+
+    function editPrompt(id) {
+      const row = appData.find(r => r['Row ID'] === id);
+      const newCredit = prompt("Edit Credit Amount:", row['Credit Amount']); if(newCredit === null) return;
+      const newUpi = prompt("Edit UPI Amount:", row['UPI Amount']); if(newUpi === null) return;
+      const newCash = prompt("Edit Cash Amount:", row['Cash Amount']); if(newCash === null) return;
+
+      const record = {
+        date: new Date(row.Date).toISOString().split('T')[0],
+        credit: newCredit, upi: newUpi, cash: newCash
+      };
+      
+      document.getElementById('data-list-body').innerHTML = '<tr><td colspan="4" style="text-align: center;">Updating...</td></tr>';
+      apiCall('update', { id: id, record: record });
+    }
+
+    function deleteRow(id) {
+      if(confirm("Are you sure you want to delete this record?")) {
+        document.getElementById('data-list-body').innerHTML = '<tr><td colspan="4" style="text-align: center;">Deleting...</td></tr>';
+        apiCall('delete', { id: id });
+      }
+    }
+
+    let dashboardOpen = false;
+    function toggleDashboard() {
+      dashboardOpen = !dashboardOpen;
+      document.getElementById('main-section').style.display = dashboardOpen ? 'none' : 'block';
+      document.getElementById('dashboard-section').style.display = dashboardOpen ? 'block' : 'none';
+      if(dashboardOpen) renderChart();
+    }
+
+    let myChart = null;
+    function renderChart() {
+      const ctx = document.getElementById('monthlyChart').getContext('2d');
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const textColor = isDark ? '#f8fafc' : '#1e293b';
+      
+      const monthlyData = {};
+      appData.forEach(row => {
+        const date = new Date(row.Date);
+        const monthYear = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+        if(!monthlyData[monthYear]) monthlyData[monthYear] = { credit: 0, upi: 0, cash: 0 };
+        
+        monthlyData[monthYear].credit += Number(row['Credit Amount']);
+        monthlyData[monthYear].upi += Number(row['UPI Amount']);
+        monthlyData[monthYear].cash += Number(row['Cash Amount']);
+      });
+
+      const labels = Object.keys(monthlyData);
+      const upiData = labels.map(l => monthlyData[l].upi);
+      const cashData = labels.map(l => monthlyData[l].cash);
+      const creditData = labels.map(l => monthlyData[l].credit);
+
+      if(myChart) myChart.destroy();
+      
+      myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'UPI', data: upiData, backgroundColor: '#3b82f6' },
+            { label: 'Cash', data: cashData, backgroundColor: '#10b981' },
+            { label: 'Credit', data: creditData, backgroundColor: '#8b5cf6' }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: textColor } } },
+          scales: { 
+            x: { stacked: true, ticks: { color: textColor } }, 
+            y: { stacked: true, ticks: { color: textColor } } 
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
