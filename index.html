@@ -142,38 +142,57 @@
     </div>
   </div>
 
-  <script>
+<script>
     // --- CONFIGURATION ---
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; // Apps Script Code.gs URL
     // ---------------------
 
     let appData = [];
-    let currentUserEmail = "";
     
+    // Check for saved login state
+    let currentUserEmail = localStorage.getItem('tft_user_email') || "";
+    let currentUserName = localStorage.getItem('tft_user_name') || "";
+    let currentUserPic = localStorage.getItem('tft_user_pic') || "";
+
+    // If logged in, skip the login screen immediately
+    window.onload = function() {
+      if (currentUserEmail) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app-content').style.display = 'block';
+        updateProfileUI(currentUserName, currentUserPic);
+        apiCall('get');
+      }
+    };
+
     // --- GOOGLE AUTHENTICATION LOGIC ---
     function handleCredentialResponse(response) {
-      // Decode the JWT token sent back by Google
       const responsePayload = decodeJwtResponse(response.credential);
       
       currentUserEmail = responsePayload.email.toLowerCase();
-      const userName = responsePayload.given_name || responsePayload.name.split(' ')[0];
-      const userPicture = responsePayload.picture;
+      currentUserName = responsePayload.given_name || responsePayload.name.split(' ')[0];
+      currentUserPic = responsePayload.picture;
 
-      // Update UI with Google Profile details
+      // Save to Local Storage to prevent login loops
+      localStorage.setItem('tft_user_email', currentUserEmail);
+      localStorage.setItem('tft_user_name', currentUserName);
+      localStorage.setItem('tft_user_pic', currentUserPic);
+
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app-content').style.display = 'block';
+      
+      updateProfileUI(currentUserName, currentUserPic);
+      apiCall('get');
+    }
+
+    function updateProfileUI(userName, userPicture) {
       document.getElementById('userNameDisplay').innerText = userName + " 👋";
       if (userPicture) {
         document.getElementById('userAvatar').innerHTML = `<img src="${userPicture}" alt="Profile" referrerpolicy="no-referrer">`;
       } else {
         document.getElementById('userAvatar').innerText = userName.charAt(0).toUpperCase();
       }
-
-      // Hide login, show app, and fetch data
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('app-content').style.display = 'block';
-      apiCall('get');
     }
 
-    // Helper to decode JWT without external libraries
     function decodeJwtResponse(token) {
       let base64Url = token.split('.')[1];
       let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -184,18 +203,21 @@
     }
 
     function logout() {
-      // Reload page to return to Google Sign in prompt
+      localStorage.clear();
       location.reload();
     }
     // -----------------------------------
 
+    // UPDATED API CALL TO USE 'GET' AND AVOID CORS ERRORS
     async function apiCall(action, payload = {}) {
-      const data = { action, user: currentUserEmail, ...payload };
       try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          body: JSON.stringify(data)
-        });
+        const queryParams = new URLSearchParams({
+          action: action,
+          user: currentUserEmail,
+          payload: JSON.stringify(payload)
+        }).toString();
+
+        const response = await fetch(`${API_URL}?${queryParams}`);
         const result = await response.json();
         renderData(result);
       } catch (error) {
