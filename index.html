@@ -41,19 +41,16 @@
     input:disabled { opacity: 0.7; }
     .add-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; width: 100%; padding: 12px; font-size: 24px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     
-    /* Re-vamped Table CSS */
     .table-container { overflow-x: hidden; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     th { text-align: left; padding: 10px 4px; font-size: 11px; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
     td { padding: 8px 4px; font-size: 13px; text-align: left; vertical-align: middle; }
     
-    /* Ensures action icons stay together and column has enough width */
     th:nth-child(5), td:nth-child(5) { width: 64px; text-align: center; } 
     
     .data-row td { border-bottom: none; font-weight: 500; }
     .td-amount { font-weight: 700; color: var(--text-main); }
     
-    /* Meta row for Date and User beneath the amounts */
     .meta-row td { padding-top: 0; padding-bottom: 14px; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); }
     
     .action-icons { display: flex; gap: 6px; justify-content: center; }
@@ -163,6 +160,11 @@
     let currentUserPic = localStorage.getItem('tft_user_pic') || "";
 
     window.onload = function() {
+      // Set today's date safely in local time to avoid timezone offset issues on load
+      const nowInit = new Date();
+      const todayInit = nowInit.getFullYear() + '-' + String(nowInit.getMonth() + 1).padStart(2, '0') + '-' + String(nowInit.getDate()).padStart(2, '0');
+      document.getElementById('entryDate').value = todayInit;
+
       if (currentUserEmail) {
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app-content').style.display = 'block';
@@ -243,8 +245,6 @@
       if(myChart) renderChart();
     }
 
-    document.getElementById('entryDate').valueAsDate = new Date();
-
     function calcTotal() {
       const upi = Number(document.getElementById('upi').value) || 0;
       const cash = Number(document.getElementById('cash').value) || 0;
@@ -264,7 +264,6 @@
       
       const dateCounts = {};
       
-      // Calculate accurate local date strings for comparison
       const now = new Date();
       const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
@@ -278,10 +277,9 @@
 
       sortedData.forEach(row => {
         const rowDate = new Date(row.Date);
-        // Robust local date parsing completely avoids the UTC timezone lock bug
         const dateStr = rowDate.getFullYear() + '-' + String(rowDate.getMonth() + 1).padStart(2, '0') + '-' + String(rowDate.getDate()).padStart(2, '0');
         
-        const displayDate = rowDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'numeric' });
+        const displayDate = rowDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
         const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' });
         
         if (rowDate.getMonth() === currentMonth && rowDate.getFullYear() === currentYear) {
@@ -291,10 +289,9 @@
         const isOwner = row['User Email'].toLowerCase() === currentUserEmail;
         const isPastDate = dateStr < todayStr;
         const hasDuplicates = dateCounts[dateStr] > 1;
-        const canEditAmounts = isOwner && !isPastDate;
+        const canEditAmounts = isOwner && (!isPastDate || hasDuplicates);
         const rowUser = row['User Email'].split('@')[0];
 
-        // New Table Architecture: Row 1 = Data, Row 2 = Metadata (Date/User)
         html += `
           <tr class="data-row">
             <td>₹${row['Credit Amount']}</td>
@@ -316,7 +313,7 @@
           </tr>
           <tr class="meta-row">
             <td colspan="5">
-              ${displayDate} ${timeStr} &bull; <span style="color: var(--primary-blue); font-weight: 500;">${rowUser}</span>
+              ${displayDate} at ${timeStr} &bull; <span style="color: var(--primary-blue); font-weight: 500;">${rowUser}</span>
             </td>
           </tr>
         `;
@@ -328,14 +325,21 @@
     }
 
     function saveEntry() {
-      const date = document.getElementById('entryDate').value;
-      const existingToday = appData.find(row => new Date(row.Date).toISOString().split('T')[0] === date);
-      if (existingToday) {
+      const selectedDate = document.getElementById('entryDate').value;
+      
+      // Fixed Duplicate Warning Logic: correctly parses local dates instead of relying on UTC string matches
+      const existingEntry = appData.find(row => {
+        const rowD = new Date(row.Date);
+        const dStr = rowD.getFullYear() + '-' + String(rowD.getMonth() + 1).padStart(2, '0') + '-' + String(rowD.getDate()).padStart(2, '0');
+        return dStr === selectedDate;
+      });
+
+      if (existingEntry) {
         if (!confirm("A record for this date already exists. Do you still want to proceed?")) return;
       }
 
       const record = {
-        date: date,
+        date: selectedDate, // Selected date is passed directly
         credit: document.getElementById('credit').value || 0,
         upi: document.getElementById('upi').value || 0,
         cash: document.getElementById('cash').value || 0
