@@ -446,9 +446,12 @@
         cashCounted: document.getElementById('editCashCounted').value || 0
       };
 
+      // FIX: Store the ID safely before the modal closes and clears it
+      const targetId = activeEditId;
       closeEditModal();
+      
       document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">Updating...</td></tr>';
-      apiCall('update', { id: activeEditId, record: record });
+      apiCall('update', { id: targetId, record: record });
     }
 
     function deleteRow(id) {
