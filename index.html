@@ -135,7 +135,7 @@
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <h3 style="margin: 0;">Recent Records</h3>
-          <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;" id="month-calc">Mtd Total: ₹0</span>
+          <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;" id="month-calc">Month Total: ₹0</span>
         </div>
         <div class="table-container">
           <table>
@@ -384,8 +384,9 @@
         html = '<tr><td colspan="5" style="text-align:center;">No records yet</td></tr>';
       }
       
+      const currentMonthName = new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' });
       document.getElementById('data-list-body').innerHTML = html;
-      document.getElementById('month-calc').innerText = 'Mtd Total: ₹' + mtdTotal;
+      document.getElementById('month-calc').innerText = currentMonthName + ' Total: ₹' + mtdTotal;
       if (dashboardOpen) renderChart();
     }
 
@@ -446,7 +447,6 @@
         cashCounted: document.getElementById('editCashCounted').value || 0
       };
 
-      // FIX: Store the ID safely before the modal closes and clears it
       const targetId = activeEditId;
       closeEditModal();
       
