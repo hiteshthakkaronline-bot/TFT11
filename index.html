@@ -40,6 +40,7 @@
     input { padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-main); font-size: 14px; width: 100%; box-sizing: border-box; }
     input:disabled { opacity: 0.7; }
     .add-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; width: 100%; padding: 12px; font-size: 24px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .load-more-btn { background: var(--bg-color); color: var(--primary-blue); border: 1px solid var(--primary-blue); padding: 10px; width: 100%; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 10px; }
     
     .table-container { overflow-x: hidden; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
@@ -113,11 +114,10 @@
           <div class="input-group"><label>Date</label><input type="date" id="entryDate" required></div>
           <div class="input-group"><label>Credit (₹)</label><input type="number" id="credit" value="0" step="any"></div>
           <div class="input-group"><label>UPI (₹)</label><input type="number" id="upi" value="0" step="any"></div>
-          <!-- UPDATE 1: Label changed from Cash Amount to Cash Counted -->
           <div class="input-group"><label>Cash Counted (₹)</label><input type="number" id="cashCounted" value="0" step="any"></div>
           <div class="input-group"><label>Total (₹)</label><input type="number" id="total" disabled value="0"></div>
         </div>
-        <button class="add-btn" onclick="saveEntry()">+</button>
+        <button class="add-btn" id="saveBtn" onclick="saveEntry()">+</button>
       </div>
 
       <div class="card">
@@ -127,7 +127,6 @@
         </div>
         <div class="table-container">
           <table>
-            <!-- UPDATE 2: First Header renamed to Cash to showcase final Cash Amount calculations -->
             <thead>
               <tr>
                 <th>Cash</th>
@@ -156,7 +155,12 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
-    let appData = [];
+    // INITIALIZE CACHE VARIABLES
+    let appData = JSON.parse(localStorage.getItem('tft_cache_data')) || [];
+    let mtdTotal = localStorage.getItem('tft_cache_total') || 0;
+    let currentOffset = 0;
+    let hasMoreRecords = false;
+
     let currentUserEmail = localStorage.getItem('tft_user_email') || "";
     let currentUserName = localStorage.getItem('tft_user_name') || "";
     let currentUserPic = localStorage.getItem('tft_user_pic') || "";
@@ -170,7 +174,16 @@
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app-content').style.display = 'block';
         updateProfileUI(currentUserName, currentUserPic);
-        apiCall('get');
+        
+        // Instant load from Cache
+        if (appData.length > 0) {
+          renderData();
+        } else {
+          document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">Syncing...</td></tr>';
+        }
+        
+        // Silently fetch top 10 fresh records
+        apiCall('get', { offset: 0, limit: 10 });
       }
     };
 
@@ -188,7 +201,7 @@
       document.getElementById('app-content').style.display = 'block';
       
       updateProfileUI(currentUserName, currentUserPic);
-      apiCall('get');
+      apiCall('get', { offset: 0, limit: 10 });
     }
 
     function updateProfileUI(userName, userPicture) {
@@ -215,7 +228,10 @@
     }
 
     async function apiCall(action, payload = {}) {
-      const data = { action: action, user: currentUserEmail, ...payload };
+      // Direct all fetches to the backend 'get' logic regardless of pagination offset
+      const backendAction = action === 'loadMore' ? 'get' : action;
+      const data = { action: backendAction, user: currentUserEmail, ...payload };
+      
       try {
         const response = await fetch(API_URL, {
           method: 'POST',
@@ -223,14 +239,44 @@
           body: JSON.stringify(data)
         });
         const result = await response.json();
+        
         if (result.error) {
           alert("Database Error: " + result.error);
+          if (action === 'loadMore') document.getElementById('loadMoreBtn').innerText = 'Load More Transactions';
           return;
         }
-        renderData(result);
+
+        // Pagination and caching logic
+        if (action === 'loadMore') {
+          appData = [...appData, ...result.rows];
+          currentOffset += 10;
+        } else {
+          appData = result.rows; 
+          currentOffset = 0;
+        }
+
+        mtdTotal = result.monthTotal !== undefined ? result.monthTotal : mtdTotal;
+        hasMoreRecords = result.hasMore;
+
+        // Persist to local cache for 0ms loads
+        localStorage.setItem('tft_cache_data', JSON.stringify(appData));
+        localStorage.setItem('tft_cache_total', mtdTotal);
+
+        renderData();
       } catch (error) {
-        alert("Network Error: Could not reach the database.");
+        if(appData.length === 0) {
+          document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--danger-red);">Network Error. Could not sync.</td></tr>';
+        } else if (action === 'loadMore') {
+          const btn = document.getElementById('loadMoreBtn');
+          if(btn) btn.innerText = 'Network Error. Try Again.';
+        }
       }
+    }
+
+    function loadMore() {
+      const btn = document.getElementById('loadMoreBtn');
+      if(btn) btn.innerText = 'Loading...';
+      apiCall('loadMore', { offset: currentOffset + 10, limit: 10 });
     }
 
     function toggleTheme() {
@@ -251,23 +297,28 @@
       
       document.getElementById('total').value = formulaTotal;
     }
+    
     document.getElementById('credit').addEventListener('input', calcTotal);
     document.getElementById('upi').addEventListener('input', calcTotal);
     document.getElementById('cashCounted').addEventListener('input', calcTotal);
 
-    function renderData(response) {
-      if(!response || !response.rows) return;
-      appData = response.rows;
-
+    function renderData() {
       let html = '';
-      let currentMonthTotal = 0;
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
+      const dateCounts = {};
+      
+      const now = new Date();
+      const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
-      const sortedData = [...appData].sort((a,b) => new Date(b.Date) - new Date(a.Date));
+      appData.forEach(row => {
+        const rowD = new Date(row.Date);
+        const dStr = rowD.getFullYear() + '-' + String(rowD.getMonth() + 1).padStart(2, '0') + '-' + String(rowD.getDate()).padStart(2, '0');
+        dateCounts[dStr] = (dateCounts[dStr] || 0) + 1;
+      });
 
-      sortedData.forEach(row => {
+      appData.forEach(row => {
         const rowDate = new Date(row.Date);
+        const dateStr = rowDate.getFullYear() + '-' + String(rowDate.getMonth() + 1).padStart(2, '0') + '-' + String(rowDate.getDate()).padStart(2, '0');
+        
         const displayDate = rowDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
         const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit', timeZone: 'Asia/Kolkata' });
         
@@ -276,14 +327,12 @@
         const cashAmountVal = Number(row['Cash Amount']) || 0;
         const calculatedTotal = Number(row['Total (Calculated)']) || 0;
 
-        if (rowDate.getMonth() === currentMonth && rowDate.getFullYear() === currentYear) {
-          currentMonthTotal += calculatedTotal; 
-        }
-
         const isOwner = row['User Email'].toLowerCase() === currentUserEmail;
+        const isPastDate = dateStr < todayStr;
+        const hasDuplicates = dateCounts[dateStr] > 1;
+        const canEditAmounts = isOwner && (!isPastDate || hasDuplicates);
         const rowUser = row['User Email'].split('@')[0];
 
-        // Column Layout: Cash Amount -> UPI -> Credit -> Total -> Actions
         html += `
           <tr class="data-row">
             <td>₹${cashAmountVal}</td>
@@ -311,12 +360,18 @@
         `;
       });
       
-      document.getElementById('data-list-body').innerHTML = html || '<tr><td colspan="5" style="text-align:center;">No records yet</td></tr>';
-      document.getElementById('month-calc').innerText = 'Mtd Total: ₹' + currentMonthTotal;
+      if (hasMoreRecords) {
+        html += `<tr><td colspan="5" style="text-align: center; border-bottom: none;"><button id="loadMoreBtn" class="load-more-btn" onclick="loadMore()">Load More Transactions</button></td></tr>`;
+      } else if (appData.length === 0) {
+        html = '<tr><td colspan="5" style="text-align:center;">No records yet</td></tr>';
+      }
+      
+      document.getElementById('data-list-body').innerHTML = html;
+      document.getElementById('month-calc').innerText = 'Mtd Total: ₹' + mtdTotal;
       if (dashboardOpen) renderChart();
     }
 
-    function saveEntry() {
+    async function saveEntry() {
       const selectedDate = document.getElementById('entryDate').value;
       const existingEntry = appData.find(row => {
         const rowD = new Date(row.Date);
@@ -336,17 +391,18 @@
         cashCounted: document.getElementById('cashCounted').value || 0
       };
       
-      document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">Saving...</td></tr>';
-      apiCall('add', { record: record });
+      const btn = document.getElementById('saveBtn');
+      if(btn) btn.innerText = '...';
       
+      await apiCall('add', { record: record });
+      
+      if(btn) btn.innerText = '+';
       document.getElementById('credit').value = 0;
       document.getElementById('upi').value = 0;
       document.getElementById('cashCounted').value = 0;
       document.getElementById('total').value = 0;
     }
 
-    // UPDATE 3: Edit window prompts for "Cash Counted" raw values directly
-    // FIX: Prompt logic optimized to handle financial inputs exclusively
     function editPrompt(id) {
       const row = appData.find(r => r['Row ID'] === id);
       const newCredit = prompt("Edit Credit Amount:", row['Credit Amount']); if(newCredit === null) return;
@@ -359,13 +415,11 @@
         cashCounted: newCashCounted
       };
       
-      document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">Updating...</td></tr>';
       apiCall('update', { id: id, record: record });
     }
 
     function deleteRow(id) {
       if(confirm("Are you sure you want to delete this record?")) {
-        document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">Deleting...</td></tr>';
         apiCall('delete', { id: id });
       }
     }
