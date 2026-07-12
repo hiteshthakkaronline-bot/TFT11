@@ -35,7 +35,6 @@
     .icon-btn { background: none; border: none; cursor: pointer; font-size: 22px; color: var(--text-main); padding: 0; }
     h3 { margin-top: 0; font-size: 18px; margin-bottom: 16px; }
     
-    /* New optimized layout for Log Amounts section */
     .log-layout { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
     .amounts-row { display: grid; grid-template-columns: 1fr 1fr 1fr 44px; gap: 8px; align-items: end; }
     .amounts-row label { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -46,9 +45,7 @@
     input { padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-main); font-size: 14px; width: 100%; box-sizing: border-box; }
     input:disabled { opacity: 0.7; }
     
-    /* Re-styled square Add Button */
     .add-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; height: 38px; width: 100%; font-size: 24px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
-    
     .load-more-btn { background: var(--bg-color); color: var(--primary-blue); border: 1px solid var(--primary-blue); padding: 10px; width: 100%; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 10px; }
     
     .table-container { overflow-x: hidden; }
@@ -87,14 +84,7 @@
            data-callback="handleCredentialResponse"
            data-auto_prompt="false">
       </div>
-      <div class="g_id_signin"
-           data-type="standard"
-           data-shape="rectangular"
-           data-theme="outline"
-           data-text="signin_with"
-           data-size="large"
-           data-logo_alignment="left">
-      </div>
+      <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large" data-logo_alignment="left"></div>
     </div>
   </div>
 
@@ -168,7 +158,6 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
-    // INITIALIZE CACHE VARIABLES
     let appData = JSON.parse(localStorage.getItem('tft_cache_data')) || [];
     let mtdTotal = localStorage.getItem('tft_cache_total') || 0;
     let currentOffset = 0;
@@ -188,14 +177,12 @@
         document.getElementById('app-content').style.display = 'block';
         updateProfileUI(currentUserName, currentUserPic);
         
-        // Instant load from Cache
         if (appData.length > 0) {
           renderData();
         } else {
           document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">Syncing...</td></tr>';
         }
         
-        // Silently fetch top 10 fresh records
         apiCall('get', { offset: 0, limit: 10 });
       }
     };
@@ -241,7 +228,6 @@
     }
 
     async function apiCall(action, payload = {}) {
-      // Direct all fetches to the backend 'get' logic regardless of pagination offset
       const backendAction = action === 'loadMore' ? 'get' : action;
       const data = { action: backendAction, user: currentUserEmail, ...payload };
       
@@ -259,7 +245,6 @@
           return;
         }
 
-        // Pagination and caching logic
         if (action === 'loadMore') {
           appData = [...appData, ...result.rows];
           currentOffset += 10;
@@ -271,7 +256,6 @@
         mtdTotal = result.monthTotal !== undefined ? result.monthTotal : mtdTotal;
         hasMoreRecords = result.hasMore;
 
-        // Persist to local cache for 0ms loads
         localStorage.setItem('tft_cache_data', JSON.stringify(appData));
         localStorage.setItem('tft_cache_total', mtdTotal);
 
@@ -307,13 +291,16 @@
       const now = new Date();
       const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
-      appData.forEach(row => {
+      // FIXED: Strictly sorting by the entered calendar date parameter descending
+      const sortedData = [...appData].sort((a, b) => new Date(b.Date) - new Date(a.Date));
+
+      sortedData.forEach(row => {
         const rowD = new Date(row.Date);
         const dStr = rowD.getFullYear() + '-' + String(rowD.getMonth() + 1).padStart(2, '0') + '-' + String(rowD.getDate()).padStart(2, '0');
         dateCounts[dStr] = (dateCounts[dStr] || 0) + 1;
       });
 
-      appData.forEach(row => {
+      sortedData.forEach(row => {
         const rowDate = new Date(row.Date);
         const dateStr = rowDate.getFullYear() + '-' + String(rowDate.getMonth() + 1).padStart(2, '0') + '-' + String(rowDate.getDate()).padStart(2, '0');
         
@@ -326,9 +313,6 @@
         const calculatedTotal = Number(row['Total (Calculated)']) || 0;
 
         const isOwner = row['User Email'].toLowerCase() === currentUserEmail;
-        const isPastDate = dateStr < todayStr;
-        const hasDuplicates = dateCounts[dateStr] > 1;
-        const canEditAmounts = isOwner && (!isPastDate || hasDuplicates);
         const rowUser = row['User Email'].split('@')[0];
 
         html += `
