@@ -346,6 +346,7 @@
     }
 
     // UPDATE 3: Edit window prompts for "Cash Counted" raw values directly
+    // FIX: Prompt logic optimized to handle financial inputs exclusively
     function editPrompt(id) {
       const row = appData.find(r => r['Row ID'] === id);
       const newCredit = prompt("Edit Credit Amount:", row['Credit Amount']); if(newCredit === null) return;
@@ -353,8 +354,9 @@
       const newCashCounted = prompt("Edit Cash Counted:", row['Cash Counted']); if(newCashCounted === null) return;
 
       const record = {
-        date: new Date(row.Date).toISOString().split('T')[0],
-        credit: newCredit, upi: newUpi, cashCounted: newCashCounted
+        credit: newCredit, 
+        upi: newUpi, 
+        cashCounted: newCashCounted
       };
       
       document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">Updating...</td></tr>';
