@@ -68,6 +68,18 @@
     .fab-menu { position: fixed; bottom: 24px; right: 24px; background: var(--primary-blue); color: white; border-radius: 50%; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); cursor: pointer; z-index: 1000; transition: transform 0.2s; }
     .fab-menu:active { transform: scale(0.95); }
     #dashboard-section { display: none; }
+
+    /* Premium Custom Modal Layer Styles */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center; z-index: 10000;
+      padding: 16px; box-sizing: border-box;
+    }
+    .modal-container { width: 100%; max-width: 400px; padding: 20px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2); }
+    .modal-action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    .cancel-btn { background: var(--border-color); color: var(--text-main); border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
+    .save-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
   </style>
 </head>
 <body>
@@ -155,6 +167,22 @@
     </div>
   </div>
 
+  <!-- Sleek Custom Native In-App Edit Modal Element -->
+  <div id="editModalOverlay" class="modal-overlay">
+    <div class="card modal-container">
+      <h3 style="margin-bottom: 14px;">Modify Record</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+        <div class="input-group"><label>Cash Counted</label><input type="number" id="editCashCounted" step="any"></div>
+        <div class="input-group"><label>UPI (₹)</label><input type="number" id="editUpi" step="any"></div>
+        <div class="input-group"><label>Credit (₹)</label><input type="number" id="editCredit" step="any"></div>
+      </div>
+      <div class="modal-action-row">
+        <button class="cancel-btn" onclick="closeEditModal()">Cancel</button>
+        <button class="save-btn" onclick="submitEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
@@ -162,6 +190,7 @@
     let mtdTotal = localStorage.getItem('tft_cache_total') || 0;
     let currentOffset = 0;
     let hasMoreRecords = false;
+    let activeEditId = null; // Stores target row inside current scope context memory
 
     let currentUserEmail = localStorage.getItem('tft_user_email') || "";
     let currentUserName = localStorage.getItem('tft_user_name') || "";
@@ -291,8 +320,7 @@
       const now = new Date();
       const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
-      // FIXED: Strictly sorting by the entered calendar date parameter descending
-      const sortedData = [...appData].sort((a, b) => new Date(b.Date) - new Date(a.Date));
+      const sortedData = [...appData].sort((a, b) => new Date(b.Date) - new Date(a.Date));[cite: 1]
 
       sortedData.forEach(row => {
         const rowD = new Date(row.Date);
@@ -384,19 +412,35 @@
       document.getElementById('cashCounted').value = 0;
     }
 
+    // MODIFIED: Native modal overlay is opened instead of throwing prompt() blocks
     function editPrompt(id) {
       const row = appData.find(r => r['Row ID'] === id);
-      const newCredit = prompt("Edit Credit Amount:", row['Credit Amount']); if(newCredit === null) return;
-      const newUpi = prompt("Edit UPI Amount:", row['UPI Amount']); if(newUpi === null) return;
-      const newCashCounted = prompt("Edit Cash Counted:", row['Cash Counted']); if(newCashCounted === null) return;
+      if(!row) return;
+
+      activeEditId = id;
+      document.getElementById('editCredit').value = row['Credit Amount'] || 0;
+      document.getElementById('editUpi').value = row['UPI Amount'] || 0;
+      document.getElementById('editCashCounted').value = row['Cash Counted'] || 0;
+
+      document.getElementById('editModalOverlay').style.display = 'flex';
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModalOverlay').style.display = 'none';
+      activeEditId = null;
+    }
+
+    function submitEdit() {
+      if(!activeEditId) return;
 
       const record = {
-        credit: newCredit, 
-        upi: newUpi, 
-        cashCounted: newCashCounted
+        credit: document.getElementById('editCredit').value || 0,
+        upi: document.getElementById('editUpi').value || 0,
+        cashCounted: document.getElementById('editCashCounted').value || 0
       };
-      
-      apiCall('update', { id: id, record: record });
+
+      closeEditModal();
+      apiCall('update', { id: activeEditId, record: record });
     }
 
     function deleteRow(id) {
