@@ -69,7 +69,6 @@
     .fab-menu:active { transform: scale(0.95); }
     #dashboard-section { display: none; }
 
-    /* Premium Custom Modal Layer Styles */
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px);
@@ -84,7 +83,6 @@
 </head>
 <body>
 
-  <!-- Google Login Screen -->
   <div id="login-screen">
     <div class="card" style="text-align: center; padding: 30px;">
       <h2>TFT 11</h2>
@@ -100,7 +98,6 @@
     </div>
   </div>
 
-  <!-- Main App Content -->
   <div id="app-content">
     <header class="app-header">
       <div class="user-info">
@@ -167,7 +164,6 @@
     </div>
   </div>
 
-  <!-- Sleek Custom Native In-App Edit Modal Element -->
   <div id="editModalOverlay" class="modal-overlay">
     <div class="card modal-container">
       <h3 style="margin-bottom: 14px;">Modify Record</h3>
@@ -178,7 +174,7 @@
       </div>
       <div class="modal-action-row">
         <button class="cancel-btn" onclick="closeEditModal()">Cancel</button>
-        <button class="save-btn" onclick="submitEdit()">Save Changes</button>
+        <button class="save-btn" onclick="submitEdit()">Save</button>
       </div>
     </div>
   </div>
@@ -186,11 +182,23 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
-    let appData = JSON.parse(localStorage.getItem('tft_cache_data')) || [];
+    let appData = [];
+    try {
+      const cachedData = localStorage.getItem('tft_cache_data');
+      if (cachedData && cachedData !== "undefined" && cachedData !== "null") {
+        appData = JSON.parse(cachedData);
+      }
+    } catch (e) {
+      console.error("Cache memory corrupted. Wiping clean.");
+      localStorage.removeItem('tft_cache_data');
+    }
+
     let mtdTotal = localStorage.getItem('tft_cache_total') || 0;
+    if (mtdTotal === "undefined" || mtdTotal === "null") mtdTotal = 0;
+
     let currentOffset = 0;
     let hasMoreRecords = false;
-    let activeEditId = null; // Stores target row inside current scope context memory
+    let activeEditId = null; 
 
     let currentUserEmail = localStorage.getItem('tft_user_email') || "";
     let currentUserName = localStorage.getItem('tft_user_name') || "";
@@ -275,10 +283,10 @@
         }
 
         if (action === 'loadMore') {
-          appData = [...appData, ...result.rows];
+          appData = [...appData, ...(result.rows || [])];
           currentOffset += 10;
         } else {
-          appData = result.rows; 
+          appData = result.rows || []; 
           currentOffset = 0;
         }
 
@@ -320,7 +328,7 @@
       const now = new Date();
       const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
-      const sortedData = [...appData].sort((a, b) => new Date(b.Date) - new Date(a.Date));[cite: 1]
+      const sortedData = [...appData].sort((a, b) => new Date(b.Date) - new Date(a.Date));
 
       sortedData.forEach(row => {
         const rowD = new Date(row.Date);
@@ -412,7 +420,6 @@
       document.getElementById('cashCounted').value = 0;
     }
 
-    // MODIFIED: Native modal overlay is opened instead of throwing prompt() blocks
     function editPrompt(id) {
       const row = appData.find(r => r['Row ID'] === id);
       if(!row) return;
@@ -440,6 +447,7 @@
       };
 
       closeEditModal();
+      document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">Updating...</td></tr>';
       apiCall('update', { id: activeEditId, record: record });
     }
 
