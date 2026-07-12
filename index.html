@@ -34,12 +34,21 @@
     .header-actions { display: flex; gap: 16px; align-items: center; }
     .icon-btn { background: none; border: none; cursor: pointer; font-size: 22px; color: var(--text-main); padding: 0; }
     h3 { margin-top: 0; font-size: 18px; margin-bottom: 16px; }
-    .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    
+    /* New optimized layout for Log Amounts section */
+    .log-layout { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
+    .amounts-row { display: grid; grid-template-columns: 1fr 1fr 1fr 44px; gap: 8px; align-items: end; }
+    .amounts-row label { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .amounts-row input { padding: 9px 6px; font-size: 14px; }
+    
     .input-group { display: flex; flex-direction: column; gap: 4px; }
     label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
     input { padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-main); font-size: 14px; width: 100%; box-sizing: border-box; }
     input:disabled { opacity: 0.7; }
-    .add-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; width: 100%; padding: 12px; font-size: 24px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    
+    /* Re-styled square Add Button */
+    .add-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; height: 38px; width: 100%; font-size: 24px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+    
     .load-more-btn { background: var(--bg-color); color: var(--primary-blue); border: 1px solid var(--primary-blue); padding: 10px; width: 100%; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 10px; }
     
     .table-container { overflow-x: hidden; }
@@ -110,14 +119,18 @@
     <div id="main-section">
       <div class="card">
         <h3>Log Amounts</h3>
-        <div class="input-grid">
-          <div class="input-group"><label>Date</label><input type="date" id="entryDate" required></div>
-          <div class="input-group"><label>Credit (₹)</label><input type="number" id="credit" value="0" step="any"></div>
-          <div class="input-group"><label>UPI (₹)</label><input type="number" id="upi" value="0" step="any"></div>
-          <div class="input-group"><label>Cash Counted (₹)</label><input type="number" id="cashCounted" value="0" step="any"></div>
-          <div class="input-group"><label>Total (₹)</label><input type="number" id="total" disabled value="0"></div>
+        <div class="log-layout">
+          <div class="input-group">
+            <label>Date</label>
+            <input type="date" id="entryDate" required>
+          </div>
+          <div class="amounts-row">
+            <div class="input-group"><label title="Cash Counted (₹)">Cash Counted</label><input type="number" id="cashCounted" value="0" step="any"></div>
+            <div class="input-group"><label>UPI (₹)</label><input type="number" id="upi" value="0" step="any"></div>
+            <div class="input-group"><label>Credit (₹)</label><input type="number" id="credit" value="0" step="any"></div>
+            <button class="add-btn" id="saveBtn" onclick="saveEntry()">+</button>
+          </div>
         </div>
-        <button class="add-btn" id="saveBtn" onclick="saveEntry()">+</button>
       </div>
 
       <div class="card">
@@ -287,21 +300,6 @@
       if(myChart) renderChart();
     }
 
-    function calcTotal() {
-      const credit = Number(document.getElementById('credit').value) || 0;
-      const upi = Number(document.getElementById('upi').value) || 0;
-      const cashCounted = Number(document.getElementById('cashCounted').value) || 0;
-      
-      const formulaCash = cashCounted - credit;
-      const formulaTotal = formulaCash + upi + credit; 
-      
-      document.getElementById('total').value = formulaTotal;
-    }
-    
-    document.getElementById('credit').addEventListener('input', calcTotal);
-    document.getElementById('upi').addEventListener('input', calcTotal);
-    document.getElementById('cashCounted').addEventListener('input', calcTotal);
-
     function renderData() {
       let html = '';
       const dateCounts = {};
@@ -400,7 +398,6 @@
       document.getElementById('credit').value = 0;
       document.getElementById('upi').value = 0;
       document.getElementById('cashCounted').value = 0;
-      document.getElementById('total').value = 0;
     }
 
     function editPrompt(id) {
