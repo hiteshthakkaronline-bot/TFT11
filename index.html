@@ -19,7 +19,7 @@
       --bg-color: #0f172a; --card-bg: #1e293b; --text-main: #f8fafc;
       --text-muted: #94a3b8; --border-color: #334155; --primary-blue: #3b82f6; --input-bg: #0f172a;
     }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 16px; padding-bottom: 90px; transition: background-color 0.3s, color 0.3s; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 16px; padding-bottom: 90px; transition: background-color 0.3s, color 0.3s; user-select: none; }
     .card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: background-color 0.3s; }
     
     #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
@@ -79,6 +79,12 @@
     .modal-action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
     .cancel-btn { background: var(--border-color); color: var(--text-main); border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
     .save-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
+
+    /* PRIVACY MODE STYLES */
+    body.privacy-mode .data-row td:not(:last-child) { filter: blur(6px); opacity: 0.6; }
+    body.privacy-mode input[type="number"] { filter: blur(6px); opacity: 0.6; pointer-events: none; }
+    body.privacy-mode #month-calc { filter: blur(6px); opacity: 0.6; }
+    body.privacy-mode canvas { filter: blur(6px); opacity: 0.6; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -189,7 +195,6 @@
         appData = JSON.parse(cachedData);
       }
     } catch (e) {
-      console.error("Cache memory corrupted. Wiping clean.");
       localStorage.removeItem('tft_cache_data');
     }
 
@@ -204,7 +209,63 @@
     let currentUserName = localStorage.getItem('tft_user_name') || "";
     let currentUserPic = localStorage.getItem('tft_user_pic') || "";
 
+    // THEME MANAGEMENT LOGIC
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      document.getElementById('themeIcon').innerText = theme === 'light' ? '🌙' : '☀️';
+      if (myChart) renderChart();
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      localStorage.setItem('tft_user_theme', newTheme);
+      applyTheme(newTheme);
+    }
+
+    function initTheme() {
+      const savedTheme = localStorage.getItem('tft_user_theme');
+      if (savedTheme) {
+        applyTheme(savedTheme);
+      } else {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        applyTheme(prefersDark ? 'dark' : 'light');
+      }
+    }
+
+    // Auto-update theme if system settings change while app is open
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      if (!localStorage.getItem('tft_user_theme')) {
+        applyTheme(e.matches ? 'dark' : 'light');
+      }
+    });
+
+    // PRIVACY TOGGLE LOGIC (Double Tap)
+    let lastTapTime = 0;
+    document.addEventListener('touchend', function(e) {
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTapTime;
+      if (tapLength < 300 && tapLength > 0) {
+        const tag = e.target.tagName.toLowerCase();
+        // Ensure they aren't trying to double tap a button or input field
+        if (tag !== 'button' && tag !== 'input' && tag !== 'svg' && tag !== 'path' && tag !== 'polyline' && tag !== 'line') {
+          document.body.classList.toggle('privacy-mode');
+          e.preventDefault();
+        }
+      }
+      lastTapTime = currentTime;
+    });
+
+    document.addEventListener('dblclick', function(e) {
+      const tag = e.target.tagName.toLowerCase();
+      if (tag !== 'button' && tag !== 'input' && tag !== 'svg' && tag !== 'path' && tag !== 'polyline' && tag !== 'line') {
+        document.body.classList.toggle('privacy-mode');
+      }
+    });
+
     window.onload = function() {
+      initTheme();
+      
       const nowInit = new Date();
       const todayInit = nowInit.getFullYear() + '-' + String(nowInit.getMonth() + 1).padStart(2, '0') + '-' + String(nowInit.getDate()).padStart(2, '0');
       document.getElementById('entryDate').value = todayInit;
@@ -311,14 +372,6 @@
       const btn = document.getElementById('loadMoreBtn');
       if(btn) btn.innerText = 'Loading...';
       apiCall('loadMore', { offset: currentOffset + 10, limit: 10 });
-    }
-
-    function toggleTheme() {
-      const html = document.documentElement;
-      const newTheme = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-      html.setAttribute('data-theme', newTheme);
-      document.getElementById('themeIcon').innerText = newTheme === 'light' ? '🌙' : '☀️';
-      if(myChart) renderChart();
     }
 
     function renderData() {
