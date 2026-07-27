@@ -141,7 +141,7 @@
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <h3 style="margin: 0;">Recent Records</h3>
-          <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;" id="month-calc">Month Total: ₹0</span>
+          <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;" id="month-calc"></span>
         </div>
         <div class="table-container">
           <table>
@@ -233,21 +233,19 @@
       }
     }
 
-    // Auto-update theme if system settings change while app is open
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
       if (!localStorage.getItem('tft_user_theme')) {
         applyTheme(e.matches ? 'dark' : 'light');
       }
     });
 
-    // PRIVACY TOGGLE LOGIC (Double Tap)
+    // PRIVACY TOGGLE LOGIC
     let lastTapTime = 0;
     document.addEventListener('touchend', function(e) {
       const currentTime = new Date().getTime();
       const tapLength = currentTime - lastTapTime;
       if (tapLength < 300 && tapLength > 0) {
         const tag = e.target.tagName.toLowerCase();
-        // Ensure they aren't trying to double tap a button or input field
         if (tag !== 'button' && tag !== 'input' && tag !== 'svg' && tag !== 'path' && tag !== 'polyline' && tag !== 'line') {
           document.body.classList.toggle('privacy-mode');
           e.preventDefault();
@@ -374,6 +372,11 @@
       apiCall('loadMore', { offset: currentOffset + 10, limit: 10 });
     }
 
+    // Helper for Indian Number Formatting
+    function formatINR(amount) {
+      return Number(amount || 0).toLocaleString('en-IN');
+    }
+
     function renderData() {
       let html = '';
       const dateCounts = {};
@@ -393,23 +396,23 @@
         const rowDate = new Date(row.Date);
         const dateStr = rowDate.getFullYear() + '-' + String(rowDate.getMonth() + 1).padStart(2, '0') + '-' + String(rowDate.getDate()).padStart(2, '0');
         
-        const displayDate = rowDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+        const displayDate = rowDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
         const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit', timeZone: 'Asia/Kolkata' });
         
-        const creditVal = Number(row['Credit Amount']) || 0;
-        const upiVal = Number(row['UPI Amount']) || 0;
-        const cashAmountVal = Number(row['Cash Amount']) || 0;
-        const calculatedTotal = Number(row['Total (Calculated)']) || 0;
+        const creditValStr = formatINR(row['Credit Amount']);
+        const upiValStr = formatINR(row['UPI Amount']);
+        const cashAmountValStr = formatINR(row['Cash Amount']);
+        const calculatedTotalStr = formatINR(row['Total (Calculated)']);
 
         const isOwner = row['User Email'].toLowerCase() === currentUserEmail;
         const rowUser = row['User Email'].split('@')[0];
 
         html += `
           <tr class="data-row">
-            <td>₹${cashAmountVal}</td>
-            <td>₹${upiVal}</td>
-            <td>₹${creditVal}</td>
-            <td class="td-amount">₹${calculatedTotal}</td>
+            <td>₹${cashAmountValStr}</td>
+            <td>₹${upiValStr}</td>
+            <td>₹${creditValStr}</td>
+            <td class="td-amount">₹${calculatedTotalStr}</td>
             <td>
               <div class="action-icons">
                 ${isOwner ? `
@@ -439,7 +442,7 @@
       
       const currentMonthName = new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' });
       document.getElementById('data-list-body').innerHTML = html;
-      document.getElementById('month-calc').innerText = currentMonthName + ' Total: ₹' + mtdTotal;
+      document.getElementById('month-calc').innerText = currentMonthName + ': ₹' + formatINR(mtdTotal);
       if (dashboardOpen) renderChart();
     }
 
