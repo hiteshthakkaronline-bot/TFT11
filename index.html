@@ -36,7 +36,6 @@
     h3 { margin-top: 0; font-size: 18px; margin-bottom: 16px; }
     
     .log-layout { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
-    /* Grid updated to fit 4 inputs + button */
     .amounts-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 44px; gap: 6px; align-items: end; }
     .amounts-row label { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .amounts-row input { padding: 9px 4px; font-size: 13px; }
@@ -49,25 +48,23 @@
     .add-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; height: 38px; width: 100%; font-size: 24px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
     .load-more-btn { background: var(--bg-color); color: var(--primary-blue); border: 1px solid var(--primary-blue); padding: 10px; width: 100%; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 10px; }
     
-    .table-container { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    /* Table padding optimized to fit 6 columns gracefully on mobile */
-    th { text-align: left; padding: 10px 2px; font-size: 10px; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
-    td { padding: 8px 2px; font-size: 12px; text-align: left; vertical-align: middle; }
+    /* NEW COMPACT LIST UI STYLES */
+    .list-container { display: flex; flex-direction: column; margin-top: 8px; }
+    .record-card { padding: 14px 4px; border-bottom: 1px solid var(--border-color); display: grid; grid-template-columns: 1fr 1fr 1fr 64px; gap: 10px 6px; align-items: center; }
+    .record-card:last-child { border-bottom: none; }
     
-    /* Target the 6th column (Actions) */
-    th:nth-child(6), td:nth-child(6) { width: 60px; text-align: center; } 
+    .amt-box { display: flex; flex-direction: column; gap: 2px; }
+    .amt-lbl { font-size: 9px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.3px; }
+    .amt-val { font-size: 13px; font-weight: 500; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .amt-total .amt-val { font-weight: 700; color: var(--primary-blue); }
     
-    .data-row td { border-bottom: none; font-weight: 500; }
-    .td-amount { font-weight: 700; color: var(--text-main); }
-    
-    .meta-row td { padding-top: 0; padding-bottom: 14px; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); }
-    
-    .action-icons { display: flex; gap: 4px; justify-content: center; }
-    .action-btn { background: none; border: 1px solid; border-radius: 4px; padding: 5px; cursor: pointer; display: flex; align-items: center; }
+    .action-col { grid-column: 4; grid-row: 1 / span 2; display: flex; gap: 6px; justify-content: flex-end; }
+    .action-btn { background: none; border: 1px solid; border-radius: 4px; padding: 6px; cursor: pointer; display: flex; align-items: center; height: fit-content; }
     .edit-btn { color: var(--primary-blue); border-color: var(--primary-blue); }
     .del-btn { color: var(--danger-red); border-color: var(--danger-red); }
     
+    .record-meta { grid-column: 1 / -1; font-size: 11px; color: var(--text-muted); margin-top: 2px; opacity: 0.9; }
+
     .fab-menu { position: fixed; bottom: 24px; right: 24px; background: var(--primary-blue); color: white; border-radius: 50%; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); cursor: pointer; z-index: 1000; transition: transform 0.2s; }
     .fab-menu:active { transform: scale(0.95); }
     #dashboard-section { display: none; }
@@ -79,14 +76,13 @@
       padding: 16px; box-sizing: border-box;
     }
     .modal-container { width: 100%; max-width: 400px; padding: 20px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2); }
-    /* Edit Modal converted to 2x2 grid */
     .modal-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .modal-action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
     .cancel-btn { background: var(--border-color); color: var(--text-main); border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
     .save-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
 
-    /* PRIVACY MODE STYLES */
-    body.privacy-mode .data-row td:not(:last-child) { filter: blur(6px); opacity: 0.6; }
+    /* PRIVACY MODE STYLES RE-MAPPED TO NEW GRID */
+    body.privacy-mode .amt-val { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode input[type="number"] { filter: blur(6px); opacity: 0.6; pointer-events: none; }
     body.privacy-mode #month-calc { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode canvas { filter: blur(6px); opacity: 0.6; pointer-events: none; }
@@ -145,25 +141,16 @@
       </div>
 
       <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
           <h3 style="margin: 0;">Recent Records</h3>
           <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;" id="month-calc"></span>
         </div>
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Cash</th>
-                <th>UPI</th>
-                <th>Credit</th>
-                <th>Others</th>
-                <th>Total</th>
-                <th style="text-align: center;">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="data-list-body"><tr><td colspan="6" style="text-align: center;">Loading data...</td></tr></tbody>
-          </table>
+        
+        <!-- Replaced Table with Dynamic List Container -->
+        <div class="list-container" id="data-list-body">
+          <div style="text-align: center; padding: 20px; color: var(--text-muted);">Loading data...</div>
         </div>
+
       </div>
     </div>
 
@@ -286,7 +273,7 @@
         if (appData.length > 0) {
           renderData();
         } else {
-          document.getElementById('data-list-body').innerHTML = '<tr><td colspan="6" style="text-align: center;">Syncing...</td></tr>';
+          document.getElementById('data-list-body').innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-muted);">Syncing...</div>';
         }
         
         apiCall('get', { offset: 0, limit: 10 });
@@ -373,7 +360,7 @@
         renderData();
       } catch (error) {
         if(appData.length === 0) {
-          document.getElementById('data-list-body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger-red);">Network Error. Could not sync.</td></tr>';
+          document.getElementById('data-list-body').innerHTML = '<div style="text-align: center; padding: 20px; color: var(--danger-red);">Network Error. Could not sync.</div>';
         } else if (action === 'loadMore') {
           const btn = document.getElementById('loadMoreBtn');
           if(btn) btn.innerText = 'Network Error. Try Again.';
@@ -423,37 +410,35 @@
         const rowUser = row['User Email'].split('@')[0];
 
         html += `
-          <tr class="data-row">
-            <td>₹${cashAmountValStr}</td>
-            <td>₹${upiValStr}</td>
-            <td>₹${creditValStr}</td>
-            <td>₹${othersValStr}</td>
-            <td class="td-amount">₹${calculatedTotalStr}</td>
-            <td>
-              <div class="action-icons">
-                ${isOwner ? `
-                  <button class="action-btn edit-btn" onclick="editPrompt('${row['Row ID']}')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                  </button>
-                  <button class="action-btn del-btn" onclick="deleteRow('${row['Row ID']}')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                  </button>
-                ` : '<span style="font-size:10px; color:var(--text-muted);">Locked</span>'}
-              </div>
-            </td>
-          </tr>
-          <tr class="meta-row">
-            <td colspan="6">
-              ${displayDate} at ${timeStr} &bull; <span style="color: var(--primary-blue); font-weight: 500;">${rowUser}</span>
-            </td>
-          </tr>
+          <div class="record-card">
+            <div class="amt-box"><span class="amt-lbl">Cash</span><span class="amt-val">₹${cashAmountValStr}</span></div>
+            <div class="amt-box"><span class="amt-lbl">UPI</span><span class="amt-val">₹${upiValStr}</span></div>
+            <div class="amt-box"><span class="amt-lbl">Credit</span><span class="amt-val">₹${creditValStr}</span></div>
+            
+            <div class="action-col">
+              ${isOwner ? `
+                <button class="action-btn edit-btn" onclick="editPrompt('${row['Row ID']}')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                </button>
+                <button class="action-btn del-btn" onclick="deleteRow('${row['Row ID']}')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+              ` : '<span style="font-size:10px; color:var(--text-muted);">Locked</span>'}
+            </div>
+
+            <div class="amt-box"><span class="amt-lbl">Others</span><span class="amt-val">₹${othersValStr}</span></div>
+            <div class="amt-box amt-total"><span class="amt-lbl">Total</span><span class="amt-val">₹${calculatedTotalStr}</span></div>
+            <div></div>
+            
+            <div class="record-meta">${displayDate} at ${timeStr} &bull; <span style="color: var(--primary-blue); font-weight: 500;">${rowUser}</span></div>
+          </div>
         `;
       });
       
       if (hasMoreRecords) {
-        html += `<tr><td colspan="6" style="text-align: center; border-bottom: none;"><button id="loadMoreBtn" class="load-more-btn" onclick="loadMore()">Load More Transactions</button></td></tr>`;
+        html += `<button id="loadMoreBtn" class="load-more-btn" onclick="loadMore()">Load More Transactions</button>`;
       } else if (appData.length === 0) {
-        html = '<tr><td colspan="6" style="text-align:center;">No records yet</td></tr>';
+        html = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">No records yet</div>';
       }
       
       const currentMonthName = new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' });
@@ -526,7 +511,7 @@
       const targetId = activeEditId;
       closeEditModal();
       
-      document.getElementById('data-list-body').innerHTML = '<tr><td colspan="6" style="text-align: center;">Updating...</td></tr>';
+      document.getElementById('data-list-body').innerHTML = '<div style="text-align: center; padding: 20px;">Updating...</div>';
       apiCall('update', { id: targetId, record: record });
     }
 
