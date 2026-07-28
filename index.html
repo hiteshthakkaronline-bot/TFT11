@@ -189,13 +189,17 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
     let appData = [];
+    let chartData = {}; // Separated historical cache for the graph
+
     try {
       const cachedData = localStorage.getItem('tft_cache_data');
-      if (cachedData && cachedData !== "undefined" && cachedData !== "null") {
-        appData = JSON.parse(cachedData);
-      }
+      if (cachedData && cachedData !== "undefined" && cachedData !== "null") appData = JSON.parse(cachedData);
+      
+      const cachedChart = localStorage.getItem('tft_cache_chart');
+      if (cachedChart && cachedChart !== "undefined" && cachedChart !== "null") chartData = JSON.parse(cachedChart);
     } catch (e) {
       localStorage.removeItem('tft_cache_data');
+      localStorage.removeItem('tft_cache_chart');
     }
 
     let mtdTotal = localStorage.getItem('tft_cache_total') || 0;
@@ -349,6 +353,12 @@
           currentOffset = 0;
         }
 
+        // Store the persistent historical chart data mapped from the backend
+        if (result.chartData) {
+          chartData = result.chartData;
+          localStorage.setItem('tft_cache_chart', JSON.stringify(chartData));
+        }
+
         mtdTotal = result.monthTotal !== undefined ? result.monthTotal : mtdTotal;
         hasMoreRecords = result.hasMore;
 
@@ -372,7 +382,6 @@
       apiCall('loadMore', { offset: currentOffset + 10, limit: 10 });
     }
 
-    // Helper for Indian Number Formatting
     function formatINR(amount) {
       return Number(amount || 0).toLocaleString('en-IN');
     }
@@ -530,21 +539,12 @@
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       const textColor = isDark ? '#f8fafc' : '#1e293b';
       
-      const monthlyData = {};
-      appData.forEach(row => {
-        const date = new Date(row.Date);
-        const monthYear = date.toLocaleString('default', { month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
-        if(!monthlyData[monthYear]) monthlyData[monthYear] = { credit: 0, upi: 0, cash: 0 };
-        
-        monthlyData[monthYear].credit += Number(row['Credit Amount']) || 0;
-        monthlyData[monthYear].upi += Number(row['UPI Amount']) || 0;
-        monthlyData[monthYear].cash += Number(row['Cash Amount']) || 0; 
-      });
-
-      const labels = Object.keys(monthlyData);
-      const upiData = labels.map(l => monthlyData[l].upi);
-      const cashData = labels.map(l => monthlyData[l].cash);
-      const creditData = labels.map(l => monthlyData[l].credit);
+      // Sort the keys chronologically to ensure graph flows correctly from past to present
+      const labels = Object.keys(chartData).sort((a, b) => chartData[a].timestamp - chartData[b].timestamp);
+      
+      const upiData = labels.map(l => chartData[l].upi);
+      const cashData = labels.map(l => chartData[l].cash);
+      const creditData = labels.map(l => chartData[l].credit);
 
       if(myChart) myChart.destroy();
       
