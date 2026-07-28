@@ -88,7 +88,8 @@
     body.privacy-mode canvas { filter: blur(6px); opacity: 0.6; pointer-events: none; }
   </style>
 </head>
-<body>
+<!-- ADDED class="privacy-mode" HERE TO MAKE IT DEFAULT ON LOAD -->
+<body class="privacy-mode">
 
   <div id="login-screen">
     <div class="card" style="text-align: center; padding: 30px;">
@@ -146,7 +147,6 @@
           <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;" id="month-calc"></span>
         </div>
         
-        <!-- Replaced Table with Dynamic List Container -->
         <div class="list-container" id="data-list-body">
           <div style="text-align: center; padding: 20px; color: var(--text-muted);">Loading data...</div>
         </div>
