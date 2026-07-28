@@ -36,9 +36,10 @@
     h3 { margin-top: 0; font-size: 18px; margin-bottom: 16px; }
     
     .log-layout { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
-    .amounts-row { display: grid; grid-template-columns: 1fr 1fr 1fr 44px; gap: 8px; align-items: end; }
+    /* Grid updated to fit 4 inputs + button */
+    .amounts-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 44px; gap: 6px; align-items: end; }
     .amounts-row label { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .amounts-row input { padding: 9px 6px; font-size: 14px; }
+    .amounts-row input { padding: 9px 4px; font-size: 13px; }
     
     .input-group { display: flex; flex-direction: column; gap: 4px; }
     label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
@@ -48,20 +49,22 @@
     .add-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; height: 38px; width: 100%; font-size: 24px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
     .load-more-btn { background: var(--bg-color); color: var(--primary-blue); border: 1px solid var(--primary-blue); padding: 10px; width: 100%; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 10px; }
     
-    .table-container { overflow-x: hidden; }
+    .table-container { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    th { text-align: left; padding: 10px 4px; font-size: 11px; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
-    td { padding: 8px 4px; font-size: 13px; text-align: left; vertical-align: middle; }
+    /* Table padding optimized to fit 6 columns gracefully on mobile */
+    th { text-align: left; padding: 10px 2px; font-size: 10px; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
+    td { padding: 8px 2px; font-size: 12px; text-align: left; vertical-align: middle; }
     
-    th:nth-child(5), td:nth-child(5) { width: 64px; text-align: center; } 
+    /* Target the 6th column (Actions) */
+    th:nth-child(6), td:nth-child(6) { width: 60px; text-align: center; } 
     
     .data-row td { border-bottom: none; font-weight: 500; }
     .td-amount { font-weight: 700; color: var(--text-main); }
     
     .meta-row td { padding-top: 0; padding-bottom: 14px; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); }
     
-    .action-icons { display: flex; gap: 6px; justify-content: center; }
-    .action-btn { background: none; border: 1px solid; border-radius: 4px; padding: 6px; cursor: pointer; display: flex; align-items: center; }
+    .action-icons { display: flex; gap: 4px; justify-content: center; }
+    .action-btn { background: none; border: 1px solid; border-radius: 4px; padding: 5px; cursor: pointer; display: flex; align-items: center; }
     .edit-btn { color: var(--primary-blue); border-color: var(--primary-blue); }
     .del-btn { color: var(--danger-red); border-color: var(--danger-red); }
     
@@ -76,7 +79,9 @@
       padding: 16px; box-sizing: border-box;
     }
     .modal-container { width: 100%; max-width: 400px; padding: 20px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2); }
-    .modal-action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    /* Edit Modal converted to 2x2 grid */
+    .modal-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
     .cancel-btn { background: var(--border-color); color: var(--text-main); border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
     .save-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
 
@@ -133,6 +138,7 @@
             <div class="input-group"><label title="Cash Counted (₹)">Cash Counted</label><input type="number" id="cashCounted" value="0" step="any"></div>
             <div class="input-group"><label>UPI (₹)</label><input type="number" id="upi" value="0" step="any"></div>
             <div class="input-group"><label>Credit (₹)</label><input type="number" id="credit" value="0" step="any"></div>
+            <div class="input-group"><label>Others (₹)</label><input type="number" id="others" value="0" step="any"></div>
             <button class="add-btn" id="saveBtn" onclick="saveEntry()">+</button>
           </div>
         </div>
@@ -150,11 +156,12 @@
                 <th>Cash</th>
                 <th>UPI</th>
                 <th>Credit</th>
+                <th>Others</th>
                 <th>Total</th>
                 <th style="text-align: center;">Actions</th>
               </tr>
             </thead>
-            <tbody id="data-list-body"><tr><td colspan="5" style="text-align: center;">Loading data...</td></tr></tbody>
+            <tbody id="data-list-body"><tr><td colspan="6" style="text-align: center;">Loading data...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -173,10 +180,11 @@
   <div id="editModalOverlay" class="modal-overlay">
     <div class="card modal-container">
       <h3 style="margin-bottom: 14px;">Modify Record</h3>
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-        <div class="input-group"><label>Cash Counted</label><input type="number" id="editCashCounted" step="any"></div>
+      <div class="modal-edit-grid">
+        <div class="input-group"><label>Cash Counted (₹)</label><input type="number" id="editCashCounted" step="any"></div>
         <div class="input-group"><label>UPI (₹)</label><input type="number" id="editUpi" step="any"></div>
         <div class="input-group"><label>Credit (₹)</label><input type="number" id="editCredit" step="any"></div>
+        <div class="input-group"><label>Others (₹)</label><input type="number" id="editOthers" step="any"></div>
       </div>
       <div class="modal-action-row">
         <button class="cancel-btn" onclick="closeEditModal()">Cancel</button>
@@ -189,7 +197,7 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
     let appData = [];
-    let chartData = {}; // Separated historical cache for the graph
+    let chartData = {}; 
 
     try {
       const cachedData = localStorage.getItem('tft_cache_data');
@@ -213,7 +221,6 @@
     let currentUserName = localStorage.getItem('tft_user_name') || "";
     let currentUserPic = localStorage.getItem('tft_user_pic') || "";
 
-    // THEME MANAGEMENT LOGIC
     function applyTheme(theme) {
       document.documentElement.setAttribute('data-theme', theme);
       document.getElementById('themeIcon').innerText = theme === 'light' ? '🌙' : '☀️';
@@ -243,7 +250,6 @@
       }
     });
 
-    // PRIVACY TOGGLE LOGIC
     let lastTapTime = 0;
     document.addEventListener('touchend', function(e) {
       const currentTime = new Date().getTime();
@@ -280,7 +286,7 @@
         if (appData.length > 0) {
           renderData();
         } else {
-          document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">Syncing...</td></tr>';
+          document.getElementById('data-list-body').innerHTML = '<tr><td colspan="6" style="text-align: center;">Syncing...</td></tr>';
         }
         
         apiCall('get', { offset: 0, limit: 10 });
@@ -353,7 +359,6 @@
           currentOffset = 0;
         }
 
-        // Store the persistent historical chart data mapped from the backend
         if (result.chartData) {
           chartData = result.chartData;
           localStorage.setItem('tft_cache_chart', JSON.stringify(chartData));
@@ -368,7 +373,7 @@
         renderData();
       } catch (error) {
         if(appData.length === 0) {
-          document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--danger-red);">Network Error. Could not sync.</td></tr>';
+          document.getElementById('data-list-body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger-red);">Network Error. Could not sync.</td></tr>';
         } else if (action === 'loadMore') {
           const btn = document.getElementById('loadMoreBtn');
           if(btn) btn.innerText = 'Network Error. Try Again.';
@@ -411,6 +416,7 @@
         const creditValStr = formatINR(row['Credit Amount']);
         const upiValStr = formatINR(row['UPI Amount']);
         const cashAmountValStr = formatINR(row['Cash Amount']);
+        const othersValStr = formatINR(row['Others']);
         const calculatedTotalStr = formatINR(row['Total (Calculated)']);
 
         const isOwner = row['User Email'].toLowerCase() === currentUserEmail;
@@ -421,6 +427,7 @@
             <td>₹${cashAmountValStr}</td>
             <td>₹${upiValStr}</td>
             <td>₹${creditValStr}</td>
+            <td>₹${othersValStr}</td>
             <td class="td-amount">₹${calculatedTotalStr}</td>
             <td>
               <div class="action-icons">
@@ -436,7 +443,7 @@
             </td>
           </tr>
           <tr class="meta-row">
-            <td colspan="5">
+            <td colspan="6">
               ${displayDate} at ${timeStr} &bull; <span style="color: var(--primary-blue); font-weight: 500;">${rowUser}</span>
             </td>
           </tr>
@@ -444,9 +451,9 @@
       });
       
       if (hasMoreRecords) {
-        html += `<tr><td colspan="5" style="text-align: center; border-bottom: none;"><button id="loadMoreBtn" class="load-more-btn" onclick="loadMore()">Load More Transactions</button></td></tr>`;
+        html += `<tr><td colspan="6" style="text-align: center; border-bottom: none;"><button id="loadMoreBtn" class="load-more-btn" onclick="loadMore()">Load More Transactions</button></td></tr>`;
       } else if (appData.length === 0) {
-        html = '<tr><td colspan="5" style="text-align:center;">No records yet</td></tr>';
+        html = '<tr><td colspan="6" style="text-align:center;">No records yet</td></tr>';
       }
       
       const currentMonthName = new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' });
@@ -472,7 +479,8 @@
         date: selectedDate,
         credit: document.getElementById('credit').value || 0,
         upi: document.getElementById('upi').value || 0,
-        cashCounted: document.getElementById('cashCounted').value || 0
+        cashCounted: document.getElementById('cashCounted').value || 0,
+        others: document.getElementById('others').value || 0
       };
       
       const btn = document.getElementById('saveBtn');
@@ -484,6 +492,7 @@
       document.getElementById('credit').value = 0;
       document.getElementById('upi').value = 0;
       document.getElementById('cashCounted').value = 0;
+      document.getElementById('others').value = 0;
     }
 
     function editPrompt(id) {
@@ -494,6 +503,7 @@
       document.getElementById('editCredit').value = row['Credit Amount'] || 0;
       document.getElementById('editUpi').value = row['UPI Amount'] || 0;
       document.getElementById('editCashCounted').value = row['Cash Counted'] || 0;
+      document.getElementById('editOthers').value = row['Others'] || 0;
 
       document.getElementById('editModalOverlay').style.display = 'flex';
     }
@@ -509,13 +519,14 @@
       const record = {
         credit: document.getElementById('editCredit').value || 0,
         upi: document.getElementById('editUpi').value || 0,
-        cashCounted: document.getElementById('editCashCounted').value || 0
+        cashCounted: document.getElementById('editCashCounted').value || 0,
+        others: document.getElementById('editOthers').value || 0
       };
 
       const targetId = activeEditId;
       closeEditModal();
       
-      document.getElementById('data-list-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">Updating...</td></tr>';
+      document.getElementById('data-list-body').innerHTML = '<tr><td colspan="6" style="text-align: center;">Updating...</td></tr>';
       apiCall('update', { id: targetId, record: record });
     }
 
@@ -539,12 +550,12 @@
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       const textColor = isDark ? '#f8fafc' : '#1e293b';
       
-      // Sort the keys chronologically to ensure graph flows correctly from past to present
       const labels = Object.keys(chartData).sort((a, b) => chartData[a].timestamp - chartData[b].timestamp);
       
       const upiData = labels.map(l => chartData[l].upi);
       const cashData = labels.map(l => chartData[l].cash);
       const creditData = labels.map(l => chartData[l].credit);
+      const othersData = labels.map(l => chartData[l].others);
 
       if(myChart) myChart.destroy();
       
@@ -555,7 +566,8 @@
           datasets: [
             { label: 'Cash', data: cashData, backgroundColor: '#10b981' },
             { label: 'UPI', data: upiData, backgroundColor: '#3b82f6' },
-            { label: 'Credit', data: creditData, backgroundColor: '#8b5cf6' }
+            { label: 'Credit', data: creditData, backgroundColor: '#8b5cf6' },
+            { label: 'Others', data: othersData, backgroundColor: '#f59e0b' }
           ]
         },
         options: {
