@@ -36,7 +36,7 @@
     h3 { margin-top: 0; font-size: 18px; margin-bottom: 16px; }
     
     .log-layout { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
-    .amounts-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 44px; gap: 6px; align-items: end; }
+    .amounts-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; align-items: end; }
     .amounts-row label { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .amounts-row input { padding: 9px 4px; font-size: 13px; }
     
@@ -48,7 +48,6 @@
     .add-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; height: 38px; width: 100%; font-size: 24px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
     .load-more-btn { background: var(--bg-color); color: var(--primary-blue); border: 1px solid var(--primary-blue); padding: 10px; width: 100%; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 10px; }
     
-    /* NEW COMPACT LIST UI STYLES */
     .list-container { display: flex; flex-direction: column; margin-top: 8px; }
     .record-card { padding: 14px 4px; border-bottom: 1px solid var(--border-color); display: grid; grid-template-columns: 1fr 1fr 1fr 64px; gap: 10px 6px; align-items: center; }
     .record-card:last-child { border-bottom: none; }
@@ -81,14 +80,13 @@
     .cancel-btn { background: var(--border-color); color: var(--text-main); border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
     .save-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
 
-    /* PRIVACY MODE STYLES RE-MAPPED TO NEW GRID */
+    /* PRIVACY MODE STYLES */
     body.privacy-mode .amt-val { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode input[type="number"] { filter: blur(6px); opacity: 0.6; pointer-events: none; }
     body.privacy-mode #month-calc { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode canvas { filter: blur(6px); opacity: 0.6; pointer-events: none; }
   </style>
 </head>
-<!-- ADDED class="privacy-mode" HERE TO MAKE IT DEFAULT ON LOAD -->
 <body class="privacy-mode">
 
   <div id="login-screen">
@@ -135,6 +133,7 @@
             <div class="input-group"><label title="Cash Counted (₹)">Cash Counted</label><input type="number" id="cashCounted" value="0" step="any"></div>
             <div class="input-group"><label>UPI (₹)</label><input type="number" id="upi" value="0" step="any"></div>
             <div class="input-group"><label>Credit (₹)</label><input type="number" id="credit" value="0" step="any"></div>
+            <div class="input-group"><label>Cheque (₹)</label><input type="number" id="cheque" value="0" step="any"></div>
             <div class="input-group"><label>Others (₹)</label><input type="number" id="others" value="0" step="any"></div>
             <button class="add-btn" id="saveBtn" onclick="saveEntry()">+</button>
           </div>
@@ -171,6 +170,7 @@
         <div class="input-group"><label>Cash Counted (₹)</label><input type="number" id="editCashCounted" step="any"></div>
         <div class="input-group"><label>UPI (₹)</label><input type="number" id="editUpi" step="any"></div>
         <div class="input-group"><label>Credit (₹)</label><input type="number" id="editCredit" step="any"></div>
+        <div class="input-group"><label>Cheque (₹)</label><input type="number" id="editCheque" step="any"></div>
         <div class="input-group"><label>Others (₹)</label><input type="number" id="editOthers" step="any"></div>
       </div>
       <div class="modal-action-row">
@@ -403,6 +403,7 @@
         const creditValStr = formatINR(row['Credit Amount']);
         const upiValStr = formatINR(row['UPI Amount']);
         const cashAmountValStr = formatINR(row['Cash Amount']);
+        const chequeValStr = formatINR(row['Cheque']);
         const othersValStr = formatINR(row['Others']);
         const calculatedTotalStr = formatINR(row['Total (Calculated)']);
 
@@ -426,9 +427,9 @@
               ` : '<span style="font-size:10px; color:var(--text-muted);">Locked</span>'}
             </div>
 
+            <div class="amt-box"><span class="amt-lbl">Cheque</span><span class="amt-val">₹${chequeValStr}</span></div>
             <div class="amt-box"><span class="amt-lbl">Others</span><span class="amt-val">₹${othersValStr}</span></div>
             <div class="amt-box amt-total"><span class="amt-lbl">Total</span><span class="amt-val">₹${calculatedTotalStr}</span></div>
-            <div></div>
             
             <div class="record-meta">${displayDate} at ${timeStr} &bull; <span style="color: var(--primary-blue); font-weight: 500;">${rowUser}</span></div>
           </div>
@@ -465,6 +466,7 @@
         credit: document.getElementById('credit').value || 0,
         upi: document.getElementById('upi').value || 0,
         cashCounted: document.getElementById('cashCounted').value || 0,
+        cheque: document.getElementById('cheque').value || 0,
         others: document.getElementById('others').value || 0
       };
       
@@ -477,6 +479,7 @@
       document.getElementById('credit').value = 0;
       document.getElementById('upi').value = 0;
       document.getElementById('cashCounted').value = 0;
+      document.getElementById('cheque').value = 0;
       document.getElementById('others').value = 0;
     }
 
@@ -488,6 +491,7 @@
       document.getElementById('editCredit').value = row['Credit Amount'] || 0;
       document.getElementById('editUpi').value = row['UPI Amount'] || 0;
       document.getElementById('editCashCounted').value = row['Cash Counted'] || 0;
+      document.getElementById('editCheque').value = row['Cheque'] || 0;
       document.getElementById('editOthers').value = row['Others'] || 0;
 
       document.getElementById('editModalOverlay').style.display = 'flex';
@@ -505,6 +509,7 @@
         credit: document.getElementById('editCredit').value || 0,
         upi: document.getElementById('editUpi').value || 0,
         cashCounted: document.getElementById('editCashCounted').value || 0,
+        cheque: document.getElementById('editCheque').value || 0,
         others: document.getElementById('editOthers').value || 0
       };
 
@@ -541,6 +546,7 @@
       const cashData = labels.map(l => chartData[l].cash);
       const creditData = labels.map(l => chartData[l].credit);
       const othersData = labels.map(l => chartData[l].others);
+      const chequeData = labels.map(l => chartData[l].cheque);
 
       if(myChart) myChart.destroy();
       
@@ -552,7 +558,8 @@
             { label: 'Cash', data: cashData, backgroundColor: '#10b981' },
             { label: 'UPI', data: upiData, backgroundColor: '#3b82f6' },
             { label: 'Credit', data: creditData, backgroundColor: '#8b5cf6' },
-            { label: 'Others', data: othersData, backgroundColor: '#f59e0b' }
+            { label: 'Others', data: othersData, backgroundColor: '#f59e0b' },
+            { label: 'Cheque', data: chequeData, backgroundColor: '#06b6d4' }
           ]
         },
         options: {
