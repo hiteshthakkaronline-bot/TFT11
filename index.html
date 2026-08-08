@@ -326,14 +326,13 @@
       document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
       document.getElementById('nav-' + tab).classList.add('active');
       
-      if (dashboardOpen) toggleDashboard(); // Close chart if open
+      if (dashboardOpen) toggleDashboard(); 
       
       document.getElementById('sale-section').style.display = tab === 'sale' ? 'block' : 'none';
       document.getElementById('vendor-section').style.display = tab === 'vendor' ? 'block' : 'none';
       document.getElementById('fabMenu').style.display = tab === 'sale' ? 'flex' : 'none';
     }
 
-    // FIXED CHART TOGGLE
     function toggleDashboard() {
       dashboardOpen = !dashboardOpen;
       if (dashboardOpen) {
@@ -410,7 +409,6 @@
         const displayDate = rDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
         const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' });
         
-        // Safety checks for rendering
         const userEmailStr = row['User Email'] ? String(row['User Email']).toLowerCase() : '';
         const isOwner = userEmailStr === currentUserEmail;
         const rowUser = userEmailStr.split('@')[0] || 'Unknown';
@@ -482,14 +480,21 @@
       }
     }
 
+    // FIXED: Mapped explicit IDs instead of a dynamic loop to ensure case-sensitivity safety.
     function editPrompt(id) {
       const row = appData.sale.find(r => r['Row ID'] === id);
-      if(!row) return; activeEditId = id;
-      ['Credit','UPI','Cash Counted','Cheque','Others'].forEach(key => {
-        document.getElementById('edit' + key.replace(' ','')).value = row[key + (key==='Others'||key==='Cheque' ? '' : ' Amount')] || row[key] || 0;
-      });
+      if(!row) return;
+
+      activeEditId = id;
+      document.getElementById('editCredit').value = row['Credit Amount'] || 0;
+      document.getElementById('editUpi').value = row['UPI Amount'] || 0;
+      document.getElementById('editCashCounted').value = row['Cash Counted'] || 0;
+      document.getElementById('editCheque').value = row['Cheque'] || 0;
+      document.getElementById('editOthers').value = row['Others'] || 0;
+
       document.getElementById('editModalOverlay').style.display = 'flex';
     }
+
     function closeEditModal() { document.getElementById('editModalOverlay').style.display = 'none'; activeEditId = null; }
     
     function submitEdit() {
