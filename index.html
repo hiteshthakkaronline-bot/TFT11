@@ -79,6 +79,9 @@
     .fab-menu:active { transform: scale(0.95); }
     #dashboard-section { display: none; }
 
+    /* Fixed chart wrapper dimensions for safe canvas rendering */
+    .chart-wrapper { position: relative; height: 300px; width: 100%; margin-top: 10px; }
+
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 16px; box-sizing: border-box; }
     .modal-container { width: 100%; max-width: 400px; padding: 20px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2); }
     .modal-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -86,10 +89,12 @@
     .cancel-btn { background: var(--border-color); color: var(--text-main); border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
     .save-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
 
+    /* PRIVACY MODE STYLES */
     body.privacy-mode .amt-val { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode input[type="number"], body.privacy-mode select { filter: blur(6px); opacity: 0.6; pointer-events: none; }
     body.privacy-mode #month-calc { filter: blur(6px); opacity: 0.6; }
-    body.privacy-mode canvas { filter: blur(6px); opacity: 0.6; pointer-events: none; }
+    /* Moved the blur filter to the wrapper to prevent mobile canvas disappearing bugs */
+    body.privacy-mode .chart-wrapper { filter: blur(6px); opacity: 0.6; pointer-events: none; }
   </style>
 </head>
 <body class="privacy-mode">
@@ -190,7 +195,9 @@
     <!-- DASHBOARD -->
     <div id="dashboard-section" class="card">
       <h3>Monthly Overview</h3>
-      <canvas id="monthlyChart"></canvas>
+      <div class="chart-wrapper">
+        <canvas id="monthlyChart"></canvas>
+      </div>
     </div>
 
     <div class="fab-menu" id="fabMenu" onclick="toggleDashboard()">
@@ -339,7 +346,9 @@
         document.getElementById('sale-section').style.display = 'none';
         document.getElementById('vendor-section').style.display = 'none';
         document.getElementById('dashboard-section').style.display = 'block';
-        renderChart();
+        
+        // Wait exactly 50ms so the browser can calculate the height of the newly un-hidden chart wrapper before drawing
+        setTimeout(() => renderChart(), 50); 
       } else {
         document.getElementById('dashboard-section').style.display = 'none';
         document.getElementById('sale-section').style.display = currentTab === 'sale' ? 'block' : 'none';
@@ -454,8 +463,6 @@
       });
       document.getElementById('vendor-list-body').innerHTML = pHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No records yet</div>';
       if (hasMore.payment) document.getElementById('vendor-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'payment', offset: offsets.payment+10})">Load More Payments</button>`;
-
-      if (dashboardOpen) renderChart();
     }
 
     async function saveEntry(target) {
@@ -463,7 +470,7 @@
         const d = document.getElementById('entryDate').value;
         if(appData.sale.find(r => new Date(r.Date).toISOString().split('T')[0] === d)) return alert("Record for this date exists.");
         document.getElementById('saveBtn').innerText = '...';
-        await apiCall('add', { target: 'sale', record: { date: d, credit: document.getElementById('credit').value, upi: document.getElementById('upi').value, cashCounted: document.getElementById('cashCounted').value, others: document.getElementById('others').value, cheque: document.getElementById('cheque').value } });
+        await apiCall('add', { target: 'sale', record: { date: d, credit: document.getElementById('credit').value, upi: document.getElementById('upi').value, cashCounted: document.getElementById('cashCounted').value, cheque: document.getElementById('cheque').value, others: document.getElementById('others').value } });
         document.getElementById('saveBtn').innerText = '+';
         ['credit','upi','cashCounted','cheque','others'].forEach(id => document.getElementById(id).value = 0);
       } else {
@@ -480,7 +487,6 @@
       }
     }
 
-    // FIXED: Mapped explicit IDs instead of a dynamic loop to ensure case-sensitivity safety.
     function editPrompt(id) {
       const row = appData.sale.find(r => r['Row ID'] === id);
       if(!row) return;
@@ -499,7 +505,7 @@
     
     function submitEdit() {
       if(!activeEditId) return; const targetId = activeEditId; closeEditModal();
-      document.getElementById('data-list-body').innerHTML = '<div style="text-align:center; padding:20px;">Updating...</div>';
+      document.getElementById('data-list-body').innerHTML = '<div style="text-align: center; padding: 20px;">Updating...</div>';
       apiCall('update', { target: 'sale', id: targetId, record: { credit: document.getElementById('editCredit').value, upi: document.getElementById('editUpi').value, cashCounted: document.getElementById('editCashCounted').value, cheque: document.getElementById('editCheque').value, others: document.getElementById('editOthers').value } });
     }
 
@@ -507,18 +513,36 @@
       if(confirm("Are you sure you want to delete this record?")) apiCall('delete', { target: target, id: id });
     }
 
+    let myChart = null;
     function renderChart() {
       const ctx = document.getElementById('monthlyChart').getContext('2d');
       const textColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#f8fafc' : '#1e293b';
       const labels = Object.keys(chartData).sort((a, b) => chartData[a].timestamp - chartData[b].timestamp);
+      
       if(myChart) myChart.destroy();
-      myChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [
-        { label: 'Cash', data: labels.map(l => chartData[l].cash), backgroundColor: '#10b981' },
-        { label: 'UPI', data: labels.map(l => chartData[l].upi), backgroundColor: '#3b82f6' },
-        { label: 'Credit', data: labels.map(l => chartData[l].credit), backgroundColor: '#8b5cf6' },
-        { label: 'Others', data: labels.map(l => chartData[l].others), backgroundColor: '#f59e0b' },
-        { label: 'Cheque', data: labels.map(l => chartData[l].cheque), backgroundColor: '#06b6d4' }
-      ]}, options: { responsive: true, plugins: { legend: { labels: { color: textColor } } }, scales: { x: { stacked: true, ticks: { color: textColor } }, y: { stacked: true, ticks: { color: textColor } } } } });
+      
+      myChart = new Chart(ctx, { 
+        type: 'bar', 
+        data: { 
+          labels: labels, 
+          datasets: [
+            { label: 'Cash', data: labels.map(l => chartData[l].cash), backgroundColor: '#10b981' },
+            { label: 'UPI', data: labels.map(l => chartData[l].upi), backgroundColor: '#3b82f6' },
+            { label: 'Credit', data: labels.map(l => chartData[l].credit), backgroundColor: '#8b5cf6' },
+            { label: 'Cheque', data: labels.map(l => chartData[l].cheque), backgroundColor: '#06b6d4' },
+            { label: 'Others', data: labels.map(l => chartData[l].others), backgroundColor: '#f59e0b' }
+          ]
+        }, 
+        options: { 
+          responsive: true,
+          maintainAspectRatio: false, // Prevents 0-height bug on mobile
+          plugins: { legend: { labels: { color: textColor } } }, 
+          scales: { 
+            x: { stacked: true, ticks: { color: textColor } }, 
+            y: { stacked: true, ticks: { color: textColor } } 
+          } 
+        } 
+      });
     }
   </script>
 </body>
