@@ -78,8 +78,7 @@
     .fab-menu { position: fixed; bottom: calc(24px + var(--nav-height)); right: 24px; background: var(--primary-blue); color: white; border-radius: 50%; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); cursor: pointer; z-index: 1000; transition: transform 0.2s; }
     .fab-menu:active { transform: scale(0.95); }
     #dashboard-section { display: none; }
-
-    /* Fixed chart wrapper dimensions for safe canvas rendering */
+    
     .chart-wrapper { position: relative; height: 300px; width: 100%; margin-top: 10px; }
 
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 16px; box-sizing: border-box; }
@@ -89,11 +88,9 @@
     .cancel-btn { background: var(--border-color); color: var(--text-main); border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
     .save-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
 
-    /* PRIVACY MODE STYLES */
     body.privacy-mode .amt-val { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode input[type="number"], body.privacy-mode select { filter: blur(6px); opacity: 0.6; pointer-events: none; }
     body.privacy-mode #month-calc { filter: blur(6px); opacity: 0.6; }
-    /* Moved the blur filter to the wrapper to prevent mobile canvas disappearing bugs */
     body.privacy-mode .chart-wrapper { filter: blur(6px); opacity: 0.6; pointer-events: none; }
   </style>
 </head>
@@ -236,6 +233,7 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
+    // Robust Cache Initialization
     let appData = { sale: [], payment: [], uniqueVendors: [] };
     let chartData = {}; 
     let dashboardOpen = false;
@@ -243,10 +241,17 @@
 
     try {
       const cData = localStorage.getItem('tft_cache_state');
-      if (cData && cData !== "undefined") appData = JSON.parse(cData);
+      if (cData && cData !== "undefined" && cData !== "null") {
+        const parsed = JSON.parse(cData);
+        if (parsed && Array.isArray(parsed.sale)) appData = parsed;
+      }
+      
       const cChart = localStorage.getItem('tft_cache_chart');
-      if (cChart && cChart !== "undefined") chartData = JSON.parse(cChart);
-    } catch (e) { localStorage.removeItem('tft_cache_state'); }
+      if (cChart && cChart !== "undefined" && cChart !== "null") chartData = JSON.parse(cChart);
+    } catch (e) { 
+      localStorage.removeItem('tft_cache_state'); 
+      localStorage.removeItem('tft_cache_chart'); 
+    }
 
     let mtdTotal = localStorage.getItem('tft_cache_total') || 0;
     if (mtdTotal === "undefined" || mtdTotal === "null") mtdTotal = 0;
@@ -303,7 +308,10 @@
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app-content').style.display = 'block';
         updateProfileUI(currentUserName, currentUserPic);
-        if (appData.sale.length > 0 || appData.payment.length > 0) renderAll();
+        
+        if (appData.sale && appData.sale.length > 0) renderAll();
+        else document.getElementById('data-list-body').innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-muted);">Loading data...</div>';
+        
         apiCall('get');
       }
     };
@@ -346,8 +354,6 @@
         document.getElementById('sale-section').style.display = 'none';
         document.getElementById('vendor-section').style.display = 'none';
         document.getElementById('dashboard-section').style.display = 'block';
-        
-        // Wait exactly 50ms so the browser can calculate the height of the newly un-hidden chart wrapper before drawing
         setTimeout(() => renderChart(), 50); 
       } else {
         document.getElementById('dashboard-section').style.display = 'none';
@@ -405,64 +411,72 @@
     function renderAll() {
       const select = document.getElementById('vendorNameSelect');
       const currentVal = select.value;
-      select.innerHTML = appData.uniqueVendors.length ? '' : '<option value="" disabled selected>No vendors yet</option>';
-      appData.uniqueVendors.forEach(v => {
-        const opt = document.createElement('option'); opt.value = v; opt.innerText = v; select.appendChild(opt);
-      });
-      if(currentVal && appData.uniqueVendors.includes(currentVal)) select.value = currentVal;
+      select.innerHTML = appData.uniqueVendors && appData.uniqueVendors.length ? '' : '<option value="" disabled selected>No vendors yet</option>';
+      if (appData.uniqueVendors) {
+        appData.uniqueVendors.forEach(v => {
+          const opt = document.createElement('option'); opt.value = v; opt.innerText = v; select.appendChild(opt);
+        });
+      }
+      if(currentVal && appData.uniqueVendors && appData.uniqueVendors.includes(currentVal)) select.value = currentVal;
 
       let sHtml = '';
-      appData.sale.forEach(row => {
-        if (!row.Date) return; 
-        const rDate = new Date(row.Date);
-        const displayDate = rDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
-        const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' });
-        
-        const userEmailStr = row['User Email'] ? String(row['User Email']).toLowerCase() : '';
-        const isOwner = userEmailStr === currentUserEmail;
-        const rowUser = userEmailStr.split('@')[0] || 'Unknown';
+      if (appData.sale) {
+        appData.sale.forEach(row => {
+          if (!row.Date) return; 
+          const rDate = new Date(row.Date);
+          const displayDate = rDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+          const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' });
+          
+          const userEmailStr = row['User Email'] ? String(row['User Email']).toLowerCase() : '';
+          const isOwner = userEmailStr === currentUserEmail;
+          const rowUser = userEmailStr.split('@')[0] || 'Unknown';
 
-        sHtml += `
-          <div class="record-card sale-card">
-            <div class="amt-box"><span class="amt-lbl">Cash</span><span class="amt-val">₹${formatINR(row['Cash Amount'])}</span></div>
-            <div class="amt-box"><span class="amt-lbl">UPI</span><span class="amt-val">₹${formatINR(row['UPI Amount'])}</span></div>
-            <div class="amt-box"><span class="amt-lbl">Credit</span><span class="amt-val">₹${formatINR(row['Credit Amount'])}</span></div>
-            <div class="action-col">
-              ${isOwner ? `<button class="action-btn edit-btn" onclick="editPrompt('${row['Row ID']}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="action-btn del-btn" onclick="deleteRow('${row['Row ID']}', 'sale')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>` : ''}
-            </div>
-            <div class="amt-box"><span class="amt-lbl">Cheque</span><span class="amt-val">₹${formatINR(row['Cheque'])}</span></div>
-            <div class="amt-box"><span class="amt-lbl">Others</span><span class="amt-val">₹${formatINR(row['Others'])}</span></div>
-            <div class="amt-box amt-total"><span class="amt-lbl">Total</span><span class="amt-val">₹${formatINR(row['Total (Calculated)'])}</span></div>
-            <div class="record-meta">${displayDate} at ${timeStr} &bull; <span style="color: var(--primary-blue); font-weight: 500;">${rowUser}</span></div>
-          </div>`;
-      });
+          sHtml += `
+            <div class="record-card sale-card">
+              <div class="amt-box"><span class="amt-lbl">Cash</span><span class="amt-val">₹${formatINR(row['Cash Amount'])}</span></div>
+              <div class="amt-box"><span class="amt-lbl">UPI</span><span class="amt-val">₹${formatINR(row['UPI Amount'])}</span></div>
+              <div class="amt-box"><span class="amt-lbl">Credit</span><span class="amt-val">₹${formatINR(row['Credit Amount'])}</span></div>
+              <div class="action-col">
+                ${isOwner ? `<button class="action-btn edit-btn" onclick="editPrompt('${row['Row ID']}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="action-btn del-btn" onclick="deleteRow('${row['Row ID']}', 'sale')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>` : ''}
+              </div>
+              <div class="amt-box"><span class="amt-lbl">Cheque</span><span class="amt-val">₹${formatINR(row['Cheque'])}</span></div>
+              <div class="amt-box"><span class="amt-lbl">Others</span><span class="amt-val">₹${formatINR(row['Others'])}</span></div>
+              <div class="amt-box amt-total"><span class="amt-lbl">Total</span><span class="amt-val">₹${formatINR(row['Total (Calculated)'])}</span></div>
+              <div class="record-meta">${displayDate} at ${timeStr} &bull; <span style="color: var(--primary-blue); font-weight: 500;">${rowUser}</span></div>
+            </div>`;
+        });
+      }
       document.getElementById('data-list-body').innerHTML = sHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No records yet</div>';
       if (hasMore.sale) document.getElementById('data-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'sale', offset: offsets.sale+10})">Load More Sales</button>`;
       document.getElementById('month-calc').innerText = new Date().toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(mtdTotal);
 
       let pHtml = '';
-      appData.payment.forEach(row => {
-        if (!row.Date) return;
-        const rDate = new Date(row.Date);
-        const displayDate = rDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
-        
-        const userEmailStr = row['User Email'] ? String(row['User Email']).toLowerCase() : '';
-        const isOwner = userEmailStr === currentUserEmail;
-        const rowUser = userEmailStr.split('@')[0] || 'Unknown';
+      if (appData.payment) {
+        appData.payment.forEach(row => {
+          if (!row.Date) return;
+          const rDate = new Date(row.Date);
+          const displayDate = rDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+          
+          const userEmailStr = row['User Email'] ? String(row['User Email']).toLowerCase() : '';
+          const isOwner = userEmailStr === currentUserEmail;
+          const rowUser = userEmailStr.split('@')[0] || 'Unknown';
 
-        pHtml += `
-          <div class="record-card vendor-card">
-            <div class="amt-box"><span class="amt-lbl">Vendor</span><span class="amt-val" style="color:var(--primary-blue); font-weight:700;">${row['Vendor Name']}</span></div>
-            <div class="amt-box"><span class="amt-lbl">Fruit</span><span class="amt-val">${row['Fruit']}</span></div>
-            <div class="action-col">
-              ${isOwner ? `<button class="action-btn del-btn" onclick="deleteRow('${row['Row ID']}', 'payment')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>` : ''}
-            </div>
-            <div class="amt-box amt-total"><span class="amt-lbl">Amount</span><span class="amt-val" style="color:var(--danger-red);">₹${formatINR(row['Amount'])}</span></div>
-            <div class="record-meta">${displayDate} &bull; <span style="color: var(--primary-blue); font-weight: 500;">${rowUser}</span></div>
-          </div>`;
-      });
+          pHtml += `
+            <div class="record-card vendor-card">
+              <div class="amt-box"><span class="amt-lbl">Vendor</span><span class="amt-val" style="color:var(--primary-blue); font-weight:700;">${row['Vendor Name']}</span></div>
+              <div class="amt-box"><span class="amt-lbl">Fruit</span><span class="amt-val">${row['Fruit']}</span></div>
+              <div class="action-col">
+                ${isOwner ? `<button class="action-btn del-btn" onclick="deleteRow('${row['Row ID']}', 'payment')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>` : ''}
+              </div>
+              <div class="amt-box amt-total"><span class="amt-lbl">Amount</span><span class="amt-val" style="color:var(--danger-red);">₹${formatINR(row['Amount'])}</span></div>
+              <div class="record-meta">${displayDate} &bull; <span style="color: var(--primary-blue); font-weight: 500;">${rowUser}</span></div>
+            </div>`;
+        });
+      }
       document.getElementById('vendor-list-body').innerHTML = pHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No records yet</div>';
       if (hasMore.payment) document.getElementById('vendor-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'payment', offset: offsets.payment+10})">Load More Payments</button>`;
+
+      if (dashboardOpen) renderChart();
     }
 
     async function saveEntry(target) {
@@ -535,7 +549,7 @@
         }, 
         options: { 
           responsive: true,
-          maintainAspectRatio: false, // Prevents 0-height bug on mobile
+          maintainAspectRatio: false, 
           plugins: { legend: { labels: { color: textColor } } }, 
           scales: { 
             x: { stacked: true, ticks: { color: textColor } }, 
