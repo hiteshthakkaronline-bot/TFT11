@@ -165,10 +165,9 @@
             </div>
             <div class="input-group">
               <label>Vendor Name</label>
-              <div style="display:flex; gap:6px;">
-                <select id="vendorNameSelect" style="flex:1;"></select>
-                <button type="button" style="padding:0 12px; background:var(--primary-blue); color:white; border:none; border-radius:6px; font-weight:bold; font-size:18px;" onclick="promptNewVendor()">+</button>
-              </div>
+              <!-- REPLACED SELECT WITH DATALIST SEARCH INPUT -->
+              <input type="text" id="vendorNameInput" list="vendorDatalist" placeholder="Search or add new..." autocomplete="off">
+              <datalist id="vendorDatalist"></datalist>
             </div>
           </div>
           <div class="amounts-row" style="grid-template-columns: 1fr 1fr 1fr 44px; gap: 8px; margin-top:4px;">
@@ -246,7 +245,11 @@
       <h3 style="margin-bottom: 14px;">Modify Vendor Payment</h3>
       <div class="modal-edit-grid">
         <div class="input-group"><label>Date</label><input type="date" id="editVendorDate"></div>
-        <div class="input-group"><label>Vendor Name</label><select id="editVendorNameSelect"></select></div>
+        <div class="input-group">
+          <label>Vendor Name</label>
+          <input type="text" id="editVendorNameInput" list="editVendorDatalist" autocomplete="off">
+          <datalist id="editVendorDatalist"></datalist>
+        </div>
         <div class="input-group"><label>Fruit</label><input type="text" id="editVendorFruit"></div>
         <div class="input-group">
           <label>Payment Mode</label>
@@ -379,7 +382,7 @@
       
       document.getElementById('sale-section').style.display = tab === 'sale' ? 'block' : 'none';
       document.getElementById('vendor-section').style.display = tab === 'vendor' ? 'block' : 'none';
-      document.getElementById('fabMenu').style.display = 'flex'; // Show on both tabs now
+      document.getElementById('fabMenu').style.display = 'flex'; 
     }
 
     function toggleDashboard() {
@@ -403,26 +406,6 @@
         document.getElementById('dashboard-section').style.display = 'none';
         document.getElementById('sale-section').style.display = currentTab === 'sale' ? 'block' : 'none';
         document.getElementById('vendor-section').style.display = currentTab === 'vendor' ? 'block' : 'none';
-      }
-    }
-
-    function promptNewVendor() {
-      const name = prompt("Enter exactly new vendor name:");
-      if(!name) return;
-      const cleanName = name.trim();
-      if(!cleanName) return;
-      
-      const select = document.getElementById('vendorNameSelect');
-      const exists = Array.from(select.options).some(opt => opt.value.toLowerCase() === cleanName.toLowerCase());
-      
-      if(exists) {
-        alert("Vendor already exists. Auto-selecting their profile.");
-        select.value = Array.from(select.options).find(opt => opt.value.toLowerCase() === cleanName.toLowerCase()).value;
-      } else {
-        const opt = document.createElement('option');
-        opt.value = cleanName; opt.innerText = cleanName;
-        select.appendChild(opt); select.value = cleanName;
-        appData.uniqueVendors.push(cleanName);
       }
     }
 
@@ -454,23 +437,20 @@
     function formatINR(amt) { return Number(amt || 0).toLocaleString('en-IN'); }
 
     function renderAll() {
-      // Vendor Dropdowns
-      const select = document.getElementById('vendorNameSelect');
-      const editSelect = document.getElementById('editVendorNameSelect');
-      const currentVal = select.value;
-      const currentEditVal = editSelect.value;
-      
-      select.innerHTML = appData.uniqueVendors && appData.uniqueVendors.length ? '' : '<option value="" disabled selected>No vendors yet</option>';
-      editSelect.innerHTML = '';
+      // Setup Datalists for Vendor Name Autocomplete
+      const datalist = document.getElementById('vendorDatalist');
+      const editDatalist = document.getElementById('editVendorDatalist');
+      datalist.innerHTML = '';
+      editDatalist.innerHTML = '';
       
       if (appData.uniqueVendors) {
         appData.uniqueVendors.forEach(v => {
-          const opt = document.createElement('option'); opt.value = v; opt.innerText = v; select.appendChild(opt);
-          const eOpt = document.createElement('option'); eOpt.value = v; eOpt.innerText = v; editSelect.appendChild(eOpt);
+          const opt = document.createElement('option'); opt.value = v;
+          datalist.appendChild(opt);
+          const eOpt = document.createElement('option'); eOpt.value = v;
+          editDatalist.appendChild(eOpt);
         });
       }
-      if(currentVal && appData.uniqueVendors && appData.uniqueVendors.includes(currentVal)) select.value = currentVal;
-      if(currentEditVal && appData.uniqueVendors && appData.uniqueVendors.includes(currentEditVal)) editSelect.value = currentEditVal;
 
       // Sale Render
       let sHtml = '';
@@ -542,16 +522,26 @@
         document.getElementById('saveBtn').innerText = '+';
         ['credit','upi','cashCounted','cheque','others'].forEach(id => document.getElementById(id).value = 0);
       } else {
-        const v = document.getElementById('vendorNameSelect').value;
-        const f = document.getElementById('vendorFruit').value;
+        let v = document.getElementById('vendorNameInput').value.trim();
+        const f = document.getElementById('vendorFruit').value.trim();
         const m = document.getElementById('vendorPaymentMode').value;
         const a = document.getElementById('vendorAmount').value;
-        if(!v) return alert("Select or add a Vendor Name.");
+        
+        if(!v) return alert("Enter a Vendor Name.");
         if(!a || a <= 0) return alert("Enter a valid amount.");
+        
+        // Auto-correct case if user types existing vendor with wrong capitalization
+        if (appData.uniqueVendors) {
+          const existingVendor = appData.uniqueVendors.find(uv => uv.toLowerCase() === v.toLowerCase());
+          if (existingVendor) v = existingVendor;
+        }
+
         document.getElementById('saveVendorBtn').innerText = '...';
         await apiCall('add', { target: 'payment', record: { date: document.getElementById('vendorDate').value, vendorName: v, fruit: f, paymentMode: m, amount: a } });
         document.getElementById('saveVendorBtn').innerText = '+';
-        document.getElementById('vendorFruit').value = ''; document.getElementById('vendorAmount').value = 0;
+        document.getElementById('vendorNameInput').value = '';
+        document.getElementById('vendorFruit').value = ''; 
+        document.getElementById('vendorAmount').value = 0;
       }
     }
 
@@ -570,7 +560,7 @@
       const row = appData.payment.find(r => r['Row ID'] === id);
       if(!row) return; activeVendorEditId = id;
       document.getElementById('editVendorDate').value = new Date(row.Date).toISOString().split('T')[0];
-      document.getElementById('editVendorNameSelect').value = row['Vendor Name'] || '';
+      document.getElementById('editVendorNameInput').value = row['Vendor Name'] || '';
       document.getElementById('editVendorFruit').value = row['Fruit'] || '';
       document.getElementById('editVendorMode').value = row['Payment Mode'] || 'Cash';
       document.getElementById('editVendorAmount').value = row['Amount'] || 0;
@@ -587,9 +577,18 @@
     }
 
     function submitVendorEdit() {
-      if(!activeVendorEditId) return; const targetId = activeVendorEditId; closeVendorEditModal();
+      if(!activeVendorEditId) return; 
+      
+      let v = document.getElementById('editVendorNameInput').value.trim();
+      if(!v) return alert("Enter a Vendor Name.");
+      if (appData.uniqueVendors) {
+        const existingVendor = appData.uniqueVendors.find(uv => uv.toLowerCase() === v.toLowerCase());
+        if (existingVendor) v = existingVendor;
+      }
+
+      const targetId = activeVendorEditId; closeVendorEditModal();
       document.getElementById('vendor-list-body').innerHTML = '<div style="text-align: center; padding: 20px;">Updating...</div>';
-      apiCall('update', { target: 'payment', id: targetId, record: { date: document.getElementById('editVendorDate').value, vendorName: document.getElementById('editVendorNameSelect').value, fruit: document.getElementById('editVendorFruit').value, paymentMode: document.getElementById('editVendorMode').value, amount: document.getElementById('editVendorAmount').value } });
+      apiCall('update', { target: 'payment', id: targetId, record: { date: document.getElementById('editVendorDate').value, vendorName: v, fruit: document.getElementById('editVendorFruit').value.trim(), paymentMode: document.getElementById('editVendorMode').value, amount: document.getElementById('editVendorAmount').value } });
     }
 
     function deleteRow(id, target) {
