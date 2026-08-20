@@ -57,7 +57,7 @@
     .list-container { display: flex; flex-direction: column; margin-top: 8px; }
     .record-card { padding: 14px 4px; border-bottom: 1px solid var(--border-color); display: grid; gap: 10px 6px; align-items: center; }
     .sale-card { grid-template-columns: 1fr 1fr 1fr 64px; }
-    .vendor-card { grid-template-columns: 1fr 1fr 64px; }
+    .vendor-card { grid-template-columns: 1fr 1fr 1fr 64px; }
     .record-card:last-child { border-bottom: none; }
     
     .amt-box { display: flex; flex-direction: column; gap: 2px; }
@@ -67,7 +67,7 @@
     
     .action-col { display: flex; gap: 6px; justify-content: flex-end; }
     .sale-card .action-col { grid-column: 4; grid-row: 1 / span 2; }
-    .vendor-card .action-col { grid-column: 3; grid-row: 1; }
+    .vendor-card .action-col { grid-column: 4; grid-row: 1; }
     
     .action-btn { background: none; border: 1px solid; border-radius: 4px; padding: 6px; cursor: pointer; display: flex; align-items: center; height: fit-content; }
     .edit-btn { color: var(--primary-blue); border-color: var(--primary-blue); }
@@ -171,8 +171,16 @@
               </div>
             </div>
           </div>
-          <div class="amounts-row" style="grid-template-columns: 1fr 1fr 44px; gap: 12px; margin-top:4px;">
-            <div class="input-group"><label>Fruit</label><input type="text" id="vendorFruit" placeholder="e.g. Apple"></div>
+          <div class="amounts-row" style="grid-template-columns: 1fr 1fr 1fr 44px; gap: 8px; margin-top:4px;">
+            <div class="input-group"><label>Fruit (Optional)</label><input type="text" id="vendorFruit" placeholder="e.g. Apple"></div>
+            <div class="input-group">
+              <label>Payment Mode</label>
+              <select id="vendorPaymentMode">
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+              </select>
+            </div>
             <div class="input-group"><label>Amount (₹)</label><input type="number" id="vendorAmount" value="0" step="any"></div>
             <button class="add-btn" id="saveVendorBtn" onclick="saveEntry('payment')">+</button>
           </div>
@@ -191,9 +199,10 @@
 
     <!-- DASHBOARD -->
     <div id="dashboard-section" class="card">
-      <h3>Monthly Overview</h3>
+      <h3 id="dashTitle">Monthly Overview</h3>
       <div class="chart-wrapper">
         <canvas id="monthlyChart"></canvas>
+        <canvas id="vendorMonthlyChart" style="display: none;"></canvas>
       </div>
     </div>
 
@@ -213,6 +222,7 @@
     </div>
   </nav>
 
+  <!-- Sales Edit Modal -->
   <div id="editModalOverlay" class="modal-overlay">
     <div class="card modal-container">
       <h3 style="margin-bottom: 14px;">Modify Record</h3>
@@ -230,11 +240,35 @@
     </div>
   </div>
 
+  <!-- Vendor Edit Modal -->
+  <div id="vendorEditModalOverlay" class="modal-overlay">
+    <div class="card modal-container">
+      <h3 style="margin-bottom: 14px;">Modify Vendor Payment</h3>
+      <div class="modal-edit-grid">
+        <div class="input-group"><label>Date</label><input type="date" id="editVendorDate"></div>
+        <div class="input-group"><label>Vendor Name</label><select id="editVendorNameSelect"></select></div>
+        <div class="input-group"><label>Fruit</label><input type="text" id="editVendorFruit"></div>
+        <div class="input-group">
+          <label>Payment Mode</label>
+          <select id="editVendorMode">
+            <option value="Cash">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+          </select>
+        </div>
+        <div class="input-group" style="grid-column: 1 / -1;"><label>Amount (₹)</label><input type="number" id="editVendorAmount" step="any"></div>
+      </div>
+      <div class="modal-action-row">
+        <button class="cancel-btn" onclick="closeVendorEditModal()">Cancel</button>
+        <button class="save-btn" onclick="submitVendorEdit()">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
-    // Robust Cache Initialization
-    let appData = { sale: [], payment: [], uniqueVendors: [] };
+    let appData = { sale: [], payment: [], uniqueVendors: [], vendorChartData: {} };
     let chartData = {}; 
     let dashboardOpen = false;
     let currentTab = 'sale';
@@ -245,7 +279,6 @@
         const parsed = JSON.parse(cData);
         if (parsed && Array.isArray(parsed.sale)) appData = parsed;
       }
-      
       const cChart = localStorage.getItem('tft_cache_chart');
       if (cChart && cChart !== "undefined" && cChart !== "null") chartData = JSON.parse(cChart);
     } catch (e) { 
@@ -259,6 +292,7 @@
     let offsets = { sale: 0, payment: 0 };
     let hasMore = { sale: false, payment: false };
     let activeEditId = null; 
+    let activeVendorEditId = null;
 
     let currentUserEmail = localStorage.getItem('tft_user_email') || "";
     let currentUserName = localStorage.getItem('tft_user_name') || "";
@@ -267,7 +301,7 @@
     function applyTheme(theme) {
       document.documentElement.setAttribute('data-theme', theme);
       document.getElementById('themeIcon').innerText = theme === 'light' ? '🌙' : '☀️';
-      if (myChart) renderChart();
+      if (dashboardOpen) renderChart();
     }
     function toggleTheme() {
       const newTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
@@ -345,7 +379,7 @@
       
       document.getElementById('sale-section').style.display = tab === 'sale' ? 'block' : 'none';
       document.getElementById('vendor-section').style.display = tab === 'vendor' ? 'block' : 'none';
-      document.getElementById('fabMenu').style.display = tab === 'sale' ? 'flex' : 'none';
+      document.getElementById('fabMenu').style.display = 'flex'; // Show on both tabs now
     }
 
     function toggleDashboard() {
@@ -354,6 +388,16 @@
         document.getElementById('sale-section').style.display = 'none';
         document.getElementById('vendor-section').style.display = 'none';
         document.getElementById('dashboard-section').style.display = 'block';
+        
+        if (currentTab === 'sale') {
+          document.getElementById('dashTitle').innerText = 'Monthly Overview';
+          document.getElementById('monthlyChart').style.display = 'block';
+          document.getElementById('vendorMonthlyChart').style.display = 'none';
+        } else {
+          document.getElementById('dashTitle').innerText = 'Vendor Payments This Month';
+          document.getElementById('monthlyChart').style.display = 'none';
+          document.getElementById('vendorMonthlyChart').style.display = 'block';
+        }
         setTimeout(() => renderChart(), 50); 
       } else {
         document.getElementById('dashboard-section').style.display = 'none';
@@ -396,6 +440,7 @@
           if (result.saleRows) { appData.sale = result.saleRows; offsets.sale = 0; hasMore.sale = result.saleHasMore; }
           if (result.paymentRows) { appData.payment = result.paymentRows; offsets.payment = 0; hasMore.payment = result.paymentHasMore; }
           if (result.uniqueVendors) appData.uniqueVendors = result.uniqueVendors;
+          if (result.vendorChartData) appData.vendorChartData = result.vendorChartData;
           if (result.chartData) { chartData = result.chartData; localStorage.setItem('tft_cache_chart', JSON.stringify(chartData)); }
           if (result.monthTotal !== undefined) mtdTotal = result.monthTotal;
         }
@@ -409,16 +454,25 @@
     function formatINR(amt) { return Number(amt || 0).toLocaleString('en-IN'); }
 
     function renderAll() {
+      // Vendor Dropdowns
       const select = document.getElementById('vendorNameSelect');
+      const editSelect = document.getElementById('editVendorNameSelect');
       const currentVal = select.value;
+      const currentEditVal = editSelect.value;
+      
       select.innerHTML = appData.uniqueVendors && appData.uniqueVendors.length ? '' : '<option value="" disabled selected>No vendors yet</option>';
+      editSelect.innerHTML = '';
+      
       if (appData.uniqueVendors) {
         appData.uniqueVendors.forEach(v => {
           const opt = document.createElement('option'); opt.value = v; opt.innerText = v; select.appendChild(opt);
+          const eOpt = document.createElement('option'); eOpt.value = v; eOpt.innerText = v; editSelect.appendChild(eOpt);
         });
       }
       if(currentVal && appData.uniqueVendors && appData.uniqueVendors.includes(currentVal)) select.value = currentVal;
+      if(currentEditVal && appData.uniqueVendors && appData.uniqueVendors.includes(currentEditVal)) editSelect.value = currentEditVal;
 
+      // Sale Render
       let sHtml = '';
       if (appData.sale) {
         appData.sale.forEach(row => {
@@ -426,7 +480,6 @@
           const rDate = new Date(row.Date);
           const displayDate = rDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
           const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' });
-          
           const userEmailStr = row['User Email'] ? String(row['User Email']).toLowerCase() : '';
           const isOwner = userEmailStr === currentUserEmail;
           const rowUser = userEmailStr.split('@')[0] || 'Unknown';
@@ -450,13 +503,13 @@
       if (hasMore.sale) document.getElementById('data-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'sale', offset: offsets.sale+10})">Load More Sales</button>`;
       document.getElementById('month-calc').innerText = new Date().toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(mtdTotal);
 
+      // Payment Render
       let pHtml = '';
       if (appData.payment) {
         appData.payment.forEach(row => {
           if (!row.Date) return;
           const rDate = new Date(row.Date);
           const displayDate = rDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
-          
           const userEmailStr = row['User Email'] ? String(row['User Email']).toLowerCase() : '';
           const isOwner = userEmailStr === currentUserEmail;
           const rowUser = userEmailStr.split('@')[0] || 'Unknown';
@@ -464,11 +517,12 @@
           pHtml += `
             <div class="record-card vendor-card">
               <div class="amt-box"><span class="amt-lbl">Vendor</span><span class="amt-val" style="color:var(--primary-blue); font-weight:700;">${row['Vendor Name']}</span></div>
-              <div class="amt-box"><span class="amt-lbl">Fruit</span><span class="amt-val">${row['Fruit']}</span></div>
+              <div class="amt-box"><span class="amt-lbl">Fruit</span><span class="amt-val">${row['Fruit'] || '-'}</span></div>
+              <div class="amt-box"><span class="amt-lbl">Mode</span><span class="amt-val">${row['Payment Mode'] || '-'}</span></div>
               <div class="action-col">
-                ${isOwner ? `<button class="action-btn del-btn" onclick="deleteRow('${row['Row ID']}', 'payment')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>` : ''}
+                ${isOwner ? `<button class="action-btn edit-btn" onclick="editVendorPrompt('${row['Row ID']}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="action-btn del-btn" onclick="deleteRow('${row['Row ID']}', 'payment')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>` : ''}
               </div>
-              <div class="amt-box amt-total"><span class="amt-lbl">Amount</span><span class="amt-val" style="color:var(--danger-red);">₹${formatINR(row['Amount'])}</span></div>
+              <div class="amt-box amt-total" style="grid-column: 1 / -1;"><span class="amt-lbl">Amount</span><span class="amt-val" style="color:var(--danger-red);">₹${formatINR(row['Amount'])}</span></div>
               <div class="record-meta">${displayDate} &bull; <span style="color: var(--primary-blue); font-weight: 500;">${rowUser}</span></div>
             </div>`;
         });
@@ -490,12 +544,12 @@
       } else {
         const v = document.getElementById('vendorNameSelect').value;
         const f = document.getElementById('vendorFruit').value;
+        const m = document.getElementById('vendorPaymentMode').value;
         const a = document.getElementById('vendorAmount').value;
         if(!v) return alert("Select or add a Vendor Name.");
-        if(!f) return alert("Enter a fruit.");
         if(!a || a <= 0) return alert("Enter a valid amount.");
         document.getElementById('saveVendorBtn').innerText = '...';
-        await apiCall('add', { target: 'payment', record: { date: document.getElementById('vendorDate').value, vendorName: v, fruit: f, amount: a } });
+        await apiCall('add', { target: 'payment', record: { date: document.getElementById('vendorDate').value, vendorName: v, fruit: f, paymentMode: m, amount: a } });
         document.getElementById('saveVendorBtn').innerText = '+';
         document.getElementById('vendorFruit').value = ''; document.getElementById('vendorAmount').value = 0;
       }
@@ -503,19 +557,28 @@
 
     function editPrompt(id) {
       const row = appData.sale.find(r => r['Row ID'] === id);
-      if(!row) return;
-
-      activeEditId = id;
+      if(!row) return; activeEditId = id;
       document.getElementById('editCredit').value = row['Credit Amount'] || 0;
       document.getElementById('editUpi').value = row['UPI Amount'] || 0;
       document.getElementById('editCashCounted').value = row['Cash Counted'] || 0;
       document.getElementById('editCheque').value = row['Cheque'] || 0;
       document.getElementById('editOthers').value = row['Others'] || 0;
-
       document.getElementById('editModalOverlay').style.display = 'flex';
     }
 
+    function editVendorPrompt(id) {
+      const row = appData.payment.find(r => r['Row ID'] === id);
+      if(!row) return; activeVendorEditId = id;
+      document.getElementById('editVendorDate').value = new Date(row.Date).toISOString().split('T')[0];
+      document.getElementById('editVendorNameSelect').value = row['Vendor Name'] || '';
+      document.getElementById('editVendorFruit').value = row['Fruit'] || '';
+      document.getElementById('editVendorMode').value = row['Payment Mode'] || 'Cash';
+      document.getElementById('editVendorAmount').value = row['Amount'] || 0;
+      document.getElementById('vendorEditModalOverlay').style.display = 'flex';
+    }
+
     function closeEditModal() { document.getElementById('editModalOverlay').style.display = 'none'; activeEditId = null; }
+    function closeVendorEditModal() { document.getElementById('vendorEditModalOverlay').style.display = 'none'; activeVendorEditId = null; }
     
     function submitEdit() {
       if(!activeEditId) return; const targetId = activeEditId; closeEditModal();
@@ -523,40 +586,56 @@
       apiCall('update', { target: 'sale', id: targetId, record: { credit: document.getElementById('editCredit').value, upi: document.getElementById('editUpi').value, cashCounted: document.getElementById('editCashCounted').value, cheque: document.getElementById('editCheque').value, others: document.getElementById('editOthers').value } });
     }
 
+    function submitVendorEdit() {
+      if(!activeVendorEditId) return; const targetId = activeVendorEditId; closeVendorEditModal();
+      document.getElementById('vendor-list-body').innerHTML = '<div style="text-align: center; padding: 20px;">Updating...</div>';
+      apiCall('update', { target: 'payment', id: targetId, record: { date: document.getElementById('editVendorDate').value, vendorName: document.getElementById('editVendorNameSelect').value, fruit: document.getElementById('editVendorFruit').value, paymentMode: document.getElementById('editVendorMode').value, amount: document.getElementById('editVendorAmount').value } });
+    }
+
     function deleteRow(id, target) {
       if(confirm("Are you sure you want to delete this record?")) apiCall('delete', { target: target, id: id });
     }
 
     let myChart = null;
+    let vChart = null;
+
     function renderChart() {
-      const ctx = document.getElementById('monthlyChart').getContext('2d');
       const textColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#f8fafc' : '#1e293b';
-      const labels = Object.keys(chartData).sort((a, b) => chartData[a].timestamp - chartData[b].timestamp);
       
-      if(myChart) myChart.destroy();
-      
-      myChart = new Chart(ctx, { 
-        type: 'bar', 
-        data: { 
-          labels: labels, 
-          datasets: [
-            { label: 'Cash', data: labels.map(l => chartData[l].cash), backgroundColor: '#10b981' },
-            { label: 'UPI', data: labels.map(l => chartData[l].upi), backgroundColor: '#3b82f6' },
-            { label: 'Credit', data: labels.map(l => chartData[l].credit), backgroundColor: '#8b5cf6' },
-            { label: 'Cheque', data: labels.map(l => chartData[l].cheque), backgroundColor: '#06b6d4' },
-            { label: 'Others', data: labels.map(l => chartData[l].others), backgroundColor: '#f59e0b' }
-          ]
-        }, 
-        options: { 
-          responsive: true,
-          maintainAspectRatio: false, 
-          plugins: { legend: { labels: { color: textColor } } }, 
-          scales: { 
-            x: { stacked: true, ticks: { color: textColor } }, 
-            y: { stacked: true, ticks: { color: textColor } } 
-          } 
-        } 
-      });
+      if (currentTab === 'sale') {
+        if(vChart) vChart.destroy();
+        const ctx = document.getElementById('monthlyChart').getContext('2d');
+        const labels = Object.keys(chartData).sort((a, b) => chartData[a].timestamp - chartData[b].timestamp);
+        if(myChart) myChart.destroy();
+        myChart = new Chart(ctx, { 
+          type: 'bar', 
+          data: { 
+            labels: labels, 
+            datasets: [
+              { label: 'Cash', data: labels.map(l => chartData[l].cash), backgroundColor: '#10b981' },
+              { label: 'UPI', data: labels.map(l => chartData[l].upi), backgroundColor: '#3b82f6' },
+              { label: 'Credit', data: labels.map(l => chartData[l].credit), backgroundColor: '#8b5cf6' },
+              { label: 'Cheque', data: labels.map(l => chartData[l].cheque), backgroundColor: '#06b6d4' },
+              { label: 'Others', data: labels.map(l => chartData[l].others), backgroundColor: '#f59e0b' }
+            ]
+          }, 
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } }, scales: { x: { stacked: true, ticks: { color: textColor } }, y: { stacked: true, ticks: { color: textColor } } } } 
+        });
+      } else {
+        if(myChart) myChart.destroy();
+        const vCtx = document.getElementById('vendorMonthlyChart').getContext('2d');
+        const vLabels = Object.keys(appData.vendorChartData || {});
+        const vData = vLabels.map(l => appData.vendorChartData[l]);
+        if(vChart) vChart.destroy();
+        vChart = new Chart(vCtx, {
+          type: 'bar',
+          data: {
+            labels: vLabels,
+            datasets: [{ label: 'Payments this Month', data: vData, backgroundColor: '#3b82f6', borderRadius: 4 }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } } }
+        });
+      }
     }
   </script>
 </body>
