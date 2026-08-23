@@ -186,7 +186,6 @@
           </div>
         </div>
 
-        <!-- Staging Area for multiple entries -->
         <div id="stagedPaymentsContainer" style="margin-top: 16px; display: none;">
           <h4 style="font-size: 14px; margin-bottom: 8px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); padding-bottom: 4px;">To be saved:</h4>
           <div id="stagedPaymentsList" style="display: flex; flex-direction: column; gap: 8px;"></div>
@@ -536,7 +535,6 @@
       if (dashboardOpen) renderChart();
     }
 
-    // MULTI-ROW STAGING FOR VENDOR PAYMENTS
     function stageVendorPayment() {
       let v = document.getElementById('vendorNameInput').value.trim();
       const f = document.getElementById('vendorFruit').value.trim();
@@ -597,7 +595,6 @@
       document.getElementById('saveBulkVendorBtn').innerText = 'Save All Payments';
     }
 
-    // SINGLE ROW SAVE FOR SALES
     async function saveEntry(target) {
       if (target === 'sale') {
         const d = document.getElementById('entryDate').value;
@@ -682,7 +679,32 @@
               { label: 'Others', data: labels.map(l => chartData[l].others), backgroundColor: '#f59e0b' }
             ]
           }, 
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } }, scales: { x: { stacked: true, ticks: { color: textColor } }, y: { stacked: true, ticks: { color: textColor } } } } 
+          options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { 
+              legend: { labels: { color: textColor } },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    let label = context.dataset.label || '';
+                    let value = context.raw || 0;
+                    let total = 0;
+                    // Calculate the total for this specific stacked bar
+                    context.chart.data.datasets.forEach(dataset => {
+                      total += dataset.data[context.dataIndex] || 0;
+                    });
+                    let percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                    return `${label}: ₹${formatINR(value)} (${percentage}%)`;
+                  }
+                }
+              }
+            }, 
+            scales: { 
+              x: { stacked: true, ticks: { color: textColor } }, 
+              y: { stacked: true, ticks: { color: textColor } } 
+            } 
+          } 
         });
       } else {
         if(myChart) myChart.destroy();
@@ -696,7 +718,21 @@
             labels: vLabels,
             datasets: [{ label: 'Payments this Month', data: vData, backgroundColor: '#3b82f6', borderRadius: 4 }]
           },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } } }
+          options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { 
+              legend: { labels: { color: textColor } },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return `${context.dataset.label}: ₹${formatINR(context.raw)}`;
+                  }
+                }
+              }
+            }, 
+            scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } } 
+          }
         });
       }
     }
