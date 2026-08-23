@@ -411,10 +411,16 @@
           document.getElementById('monthlyChart').style.display = 'block';
           document.getElementById('vendorMonthlyChart').style.display = 'none';
         } else {
-          document.getElementById('dashTitle').innerText = 'Vendor Payments This Month';
+          document.getElementById('dashTitle').innerText = 'Vendor Overview';
+          
           let vendorMonthTotalAmt = 0;
-          if (appData.vendorChartData) vendorMonthTotalAmt = Object.values(appData.vendorChartData).reduce((sum, val) => sum + val, 0);
-          document.getElementById('dashMonthTotal').innerText = 'Total: ₹' + formatINR(vendorMonthTotalAmt);
+          const now = new Date();
+          const currMYStr = now.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+          if (appData.vendorChartData && appData.vendorChartData[currMYStr]) {
+            vendorMonthTotalAmt = appData.vendorChartData[currMYStr].total;
+          }
+
+          document.getElementById('dashMonthTotal').innerText = 'This Month: ₹' + formatINR(vendorMonthTotalAmt);
           document.getElementById('monthlyChart').style.display = 'none';
           document.getElementById('vendorMonthlyChart').style.display = 'block';
         }
@@ -502,10 +508,6 @@
       if (hasMore.sale) document.getElementById('data-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'sale', offset: offsets.sale+10})">Load More Sales</button>`;
       document.getElementById('month-calc').innerText = new Date().toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(mtdTotal);
 
-      if (dashboardOpen && currentTab === 'sale') {
-        document.getElementById('dashMonthTotal').innerText = 'This Month: ₹' + formatINR(mtdTotal);
-      }
-
       // Payment Render
       let pHtml = '';
       if (appData.payment) {
@@ -540,14 +542,18 @@
       if (hasMore.payment) document.getElementById('vendor-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'payment', offset: offsets.payment+10})">Load More Payments</button>`;
 
       let vendorMonthTotalAmt = 0;
-      if (appData.vendorChartData) vendorMonthTotalAmt = Object.values(appData.vendorChartData).reduce((sum, val) => sum + val, 0);
-      document.getElementById('vendor-month-calc').innerText = new Date().toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(vendorMonthTotalAmt);
-
-      if (dashboardOpen && currentTab === 'vendor') {
-        document.getElementById('dashMonthTotal').innerText = 'Total: ₹' + formatINR(vendorMonthTotalAmt);
+      const now = new Date();
+      const currMYStr = now.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+      if (appData.vendorChartData && appData.vendorChartData[currMYStr]) {
+        vendorMonthTotalAmt = appData.vendorChartData[currMYStr].total;
       }
+      document.getElementById('vendor-month-calc').innerText = now.toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(vendorMonthTotalAmt);
 
-      if (dashboardOpen) renderChart();
+      if (dashboardOpen) {
+        if (currentTab === 'sale') document.getElementById('dashMonthTotal').innerText = 'This Month: ₹' + formatINR(mtdTotal);
+        else document.getElementById('dashMonthTotal').innerText = 'This Month: ₹' + formatINR(vendorMonthTotalAmt);
+        renderChart();
+      }
     }
 
     function stageVendorPayment() {
@@ -674,6 +680,9 @@
     let myChart = null;
     let vChart = null;
 
+    // Distinct color palette for dynamic vendors
+    const vendorColors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#f43f5e', '#6366f1', '#84cc16'];
+
     function renderChart() {
       const textColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#f8fafc' : '#1e293b';
       
@@ -732,14 +741,29 @@
       } else {
         if(myChart) myChart.destroy();
         const vCtx = document.getElementById('vendorMonthlyChart').getContext('2d');
-        const vLabels = Object.keys(appData.vendorChartData || {});
-        const vData = vLabels.map(l => appData.vendorChartData[l]);
+        
+        const vLabels = Object.keys(appData.vendorChartData || {}).sort((a, b) => appData.vendorChartData[a].timestamp - appData.vendorChartData[b].timestamp);
+        
+        const allVendorsInChart = new Set();
+        vLabels.forEach(l => {
+          Object.keys(appData.vendorChartData[l].vendors).forEach(v => allVendorsInChart.add(v));
+        });
+        const vendorsArray = Array.from(allVendorsInChart);
+
+        const vDatasets = vendorsArray.map((vendor, index) => {
+          return {
+            label: vendor,
+            data: vLabels.map(l => appData.vendorChartData[l].vendors[vendor] || 0),
+            backgroundColor: vendorColors[index % vendorColors.length]
+          };
+        });
+
         if(vChart) vChart.destroy();
         vChart = new Chart(vCtx, {
           type: 'bar',
           data: {
             labels: vLabels,
-            datasets: [{ label: 'Payments this Month', data: vData, backgroundColor: '#3b82f6', borderRadius: 4 }]
+            datasets: vDatasets
           },
           options: { 
             responsive: true, 
@@ -749,12 +773,31 @@
               tooltip: {
                 callbacks: {
                   label: function(context) {
-                    return `${context.dataset.label}: ₹${formatINR(context.raw)}`;
+                    let label = context.dataset.label || '';
+                    let value = context.raw || 0;
+                    let total = 0;
+                    
+                    context.chart.data.datasets.forEach(dataset => {
+                      total += dataset.data[context.dataIndex] || 0;
+                    });
+                    
+                    let percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                    return `${label}: ₹${formatINR(value)} (${percentage}%)`;
+                  },
+                  footer: function(tooltipItems) {
+                    let total = 0;
+                    tooltipItems[0].chart.data.datasets.forEach(dataset => {
+                      total += dataset.data[tooltipItems[0].dataIndex] || 0;
+                    });
+                    return 'Total: ₹' + formatINR(total);
                   }
                 }
               }
             }, 
-            scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } } 
+            scales: { 
+              x: { stacked: true, ticks: { color: textColor } }, 
+              y: { stacked: true, ticks: { color: textColor } } 
+            } 
           }
         });
       }
