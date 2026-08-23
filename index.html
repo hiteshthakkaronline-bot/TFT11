@@ -90,7 +90,7 @@
 
     body.privacy-mode .amt-val { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode input[type="number"], body.privacy-mode select { filter: blur(6px); opacity: 0.6; pointer-events: none; }
-    body.privacy-mode #month-calc, body.privacy-mode #vendor-month-calc { filter: blur(6px); opacity: 0.6; }
+    body.privacy-mode #month-calc, body.privacy-mode #vendor-month-calc, body.privacy-mode #dashMonthTotal { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode .chart-wrapper { filter: blur(6px); opacity: 0.6; pointer-events: none; }
   </style>
 </head>
@@ -207,7 +207,10 @@
 
     <!-- DASHBOARD -->
     <div id="dashboard-section" class="card">
-      <h3 id="dashTitle">Monthly Overview</h3>
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px;">
+        <h3 id="dashTitle" style="margin: 0;">Monthly Overview</h3>
+        <span id="dashMonthTotal" style="font-size: 13px; font-weight: 700; color: var(--primary-blue);"></span>
+      </div>
       <div class="chart-wrapper">
         <canvas id="monthlyChart"></canvas>
         <canvas id="vendorMonthlyChart" style="display: none;"></canvas>
@@ -404,10 +407,14 @@
         
         if (currentTab === 'sale') {
           document.getElementById('dashTitle').innerText = 'Monthly Overview';
+          document.getElementById('dashMonthTotal').innerText = 'This Month: ₹' + formatINR(mtdTotal);
           document.getElementById('monthlyChart').style.display = 'block';
           document.getElementById('vendorMonthlyChart').style.display = 'none';
         } else {
           document.getElementById('dashTitle').innerText = 'Vendor Payments This Month';
+          let vendorMonthTotalAmt = 0;
+          if (appData.vendorChartData) vendorMonthTotalAmt = Object.values(appData.vendorChartData).reduce((sum, val) => sum + val, 0);
+          document.getElementById('dashMonthTotal').innerText = 'Total: ₹' + formatINR(vendorMonthTotalAmt);
           document.getElementById('monthlyChart').style.display = 'none';
           document.getElementById('vendorMonthlyChart').style.display = 'block';
         }
@@ -495,6 +502,10 @@
       if (hasMore.sale) document.getElementById('data-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'sale', offset: offsets.sale+10})">Load More Sales</button>`;
       document.getElementById('month-calc').innerText = new Date().toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(mtdTotal);
 
+      if (dashboardOpen && currentTab === 'sale') {
+        document.getElementById('dashMonthTotal').innerText = 'This Month: ₹' + formatINR(mtdTotal);
+      }
+
       // Payment Render
       let pHtml = '';
       if (appData.payment) {
@@ -531,6 +542,10 @@
       let vendorMonthTotalAmt = 0;
       if (appData.vendorChartData) vendorMonthTotalAmt = Object.values(appData.vendorChartData).reduce((sum, val) => sum + val, 0);
       document.getElementById('vendor-month-calc').innerText = new Date().toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(vendorMonthTotalAmt);
+
+      if (dashboardOpen && currentTab === 'vendor') {
+        document.getElementById('dashMonthTotal').innerText = 'Total: ₹' + formatINR(vendorMonthTotalAmt);
+      }
 
       if (dashboardOpen) renderChart();
     }
@@ -690,12 +705,20 @@
                     let label = context.dataset.label || '';
                     let value = context.raw || 0;
                     let total = 0;
-                    // Calculate the total for this specific stacked bar
+                    
                     context.chart.data.datasets.forEach(dataset => {
                       total += dataset.data[context.dataIndex] || 0;
                     });
+                    
                     let percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                     return `${label}: ₹${formatINR(value)} (${percentage}%)`;
+                  },
+                  footer: function(tooltipItems) {
+                    let total = 0;
+                    tooltipItems[0].chart.data.datasets.forEach(dataset => {
+                      total += dataset.data[tooltipItems[0].dataIndex] || 0;
+                    });
+                    return 'Total: ₹' + formatINR(total);
                   }
                 }
               }
