@@ -54,10 +54,10 @@
     .add-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; height: 38px; width: 100%; font-size: 24px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
     .load-more-btn { background: var(--bg-color); color: var(--primary-blue); border: 1px solid var(--primary-blue); padding: 10px; width: 100%; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 10px; }
     
-    /* UNIFIED COMPACT CARD STYLES */
     .list-container { display: flex; flex-direction: column; margin-top: 8px; }
     .record-card { padding: 14px 4px; border-bottom: 1px solid var(--border-color); display: grid; gap: 10px 6px; align-items: center; }
-    .sale-card, .vendor-card { grid-template-columns: 1fr 1fr 1fr 64px; }
+    .sale-card { grid-template-columns: 1fr 1fr 1fr 64px; }
+    .vendor-card { grid-template-columns: 1fr 1fr 1fr 64px; }
     .record-card:last-child { border-bottom: none; }
     
     .amt-box { display: flex; flex-direction: column; gap: 2px; }
@@ -65,7 +65,10 @@
     .amt-val { font-size: 13px; font-weight: 500; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .amt-total .amt-val { font-weight: 700; color: var(--primary-blue); }
     
-    .action-col { display: flex; gap: 6px; justify-content: flex-end; grid-column: 4; grid-row: 1 / span 2; }
+    .action-col { display: flex; gap: 6px; justify-content: flex-end; }
+    .sale-card .action-col { grid-column: 4; grid-row: 1 / span 2; }
+    .vendor-card .action-col { grid-column: 4; grid-row: 1; }
+    
     .action-btn { background: none; border: 1px solid; border-radius: 4px; padding: 6px; cursor: pointer; display: flex; align-items: center; height: fit-content; }
     .edit-btn { color: var(--primary-blue); border-color: var(--primary-blue); }
     .del-btn { color: var(--danger-red); border-color: var(--danger-red); }
@@ -87,7 +90,7 @@
 
     body.privacy-mode .amt-val { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode input[type="number"], body.privacy-mode select { filter: blur(6px); opacity: 0.6; pointer-events: none; }
-    body.privacy-mode #month-calc { filter: blur(6px); opacity: 0.6; }
+    body.privacy-mode #month-calc, body.privacy-mode #vendor-month-calc { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode .chart-wrapper { filter: blur(6px); opacity: 0.6; pointer-events: none; }
   </style>
 </head>
@@ -153,21 +156,23 @@
     <!-- TAB 2: VENDOR PAYMENTS -->
     <div id="vendor-section" style="display: none;">
       <div class="card">
-        <h3>Vendor Payments</h3>
+        <h3>Log Payment</h3>
         <div class="log-layout">
-          <div class="amounts-row" style="grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="amounts-row" style="grid-template-columns: 1fr;">
             <div class="input-group">
               <label>Date</label>
               <input type="date" id="vendorDate" required>
             </div>
+          </div>
+          <div class="amounts-row" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-top:12px;">
             <div class="input-group">
               <label>Vendor Name</label>
               <input type="text" id="vendorNameInput" list="vendorDatalist" placeholder="Search or add new..." autocomplete="off">
               <datalist id="vendorDatalist"></datalist>
             </div>
-          </div>
-          <div class="amounts-row" style="grid-template-columns: 1fr 1fr 1fr 44px; gap: 8px; margin-top:4px;">
             <div class="input-group"><label>Fruit (Optional)</label><input type="text" id="vendorFruit" placeholder="e.g. Apple"></div>
+          </div>
+          <div class="amounts-row" style="grid-template-columns: 1fr 1fr 44px; gap: 8px; margin-top:12px;">
             <div class="input-group">
               <label>Payment Mode</label>
               <select id="vendorPaymentMode">
@@ -177,14 +182,23 @@
               </select>
             </div>
             <div class="input-group"><label>Amount (₹)</label><input type="number" id="vendorAmount" value="0" step="any"></div>
-            <button class="add-btn" id="saveVendorBtn" onclick="saveEntry('payment')">+</button>
+            <button class="add-btn" id="stageVendorBtn" onclick="stageVendorPayment()">+</button>
           </div>
         </div>
+
+        <!-- Staging Area for multiple entries -->
+        <div id="stagedPaymentsContainer" style="margin-top: 16px; display: none;">
+          <h4 style="font-size: 14px; margin-bottom: 8px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); padding-bottom: 4px;">To be saved:</h4>
+          <div id="stagedPaymentsList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+          <button class="add-btn" style="margin-top: 16px; font-size: 16px; background: #10b981;" id="saveBulkVendorBtn" onclick="saveAllVendorPayments()">Save All Payments</button>
+        </div>
+
       </div>
 
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <h3 style="margin: 0;">Recent Payments</h3>
+          <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;" id="vendor-month-calc"></span>
         </div>
         <div class="list-container" id="vendor-list-body">
           <div style="text-align: center; padding: 20px; color: var(--text-muted);">Loading data...</div>
@@ -271,6 +285,7 @@
     let chartData = {}; 
     let dashboardOpen = false;
     let currentTab = 'sale';
+    let stagedVendorPayments = [];
 
     try {
       const cData = localStorage.getItem('tft_cache_state');
@@ -489,7 +504,6 @@
           const rDate = new Date(row.Date);
           const displayDate = rDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
           const timeStr = new Date(row.Timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' });
-          
           const userEmailStr = row['User Email'] ? String(row['User Email']).toLowerCase() : '';
           const isOwner = userEmailStr === currentUserEmail;
           const rowUser = userEmailStr.split('@')[0] || 'Unknown';
@@ -515,9 +529,75 @@
       document.getElementById('vendor-list-body').innerHTML = pHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No records yet</div>';
       if (hasMore.payment) document.getElementById('vendor-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'payment', offset: offsets.payment+10})">Load More Payments</button>`;
 
+      let vendorMonthTotalAmt = 0;
+      if (appData.vendorChartData) vendorMonthTotalAmt = Object.values(appData.vendorChartData).reduce((sum, val) => sum + val, 0);
+      document.getElementById('vendor-month-calc').innerText = new Date().toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(vendorMonthTotalAmt);
+
       if (dashboardOpen) renderChart();
     }
 
+    // MULTI-ROW STAGING FOR VENDOR PAYMENTS
+    function stageVendorPayment() {
+      let v = document.getElementById('vendorNameInput').value.trim();
+      const f = document.getElementById('vendorFruit').value.trim();
+      const m = document.getElementById('vendorPaymentMode').value;
+      const a = document.getElementById('vendorAmount').value;
+      const d = document.getElementById('vendorDate').value;
+      
+      if(!d) return alert("Select a date.");
+      if(!v) return alert("Enter a Vendor Name.");
+      if(!a || a <= 0) return alert("Enter a valid amount.");
+      
+      if (appData.uniqueVendors) {
+        const existingVendor = appData.uniqueVendors.find(uv => uv.toLowerCase() === v.toLowerCase());
+        if (existingVendor) v = existingVendor;
+      }
+
+      stagedVendorPayments.push({ date: d, vendorName: v, fruit: f, paymentMode: m, amount: a });
+      
+      document.getElementById('vendorNameInput').value = '';
+      document.getElementById('vendorFruit').value = ''; 
+      document.getElementById('vendorAmount').value = 0;
+      
+      renderStagedPayments();
+    }
+
+    function removeStagedPayment(index) {
+      stagedVendorPayments.splice(index, 1);
+      renderStagedPayments();
+    }
+
+    function renderStagedPayments() {
+      const container = document.getElementById('stagedPaymentsContainer');
+      const list = document.getElementById('stagedPaymentsList');
+      
+      if (stagedVendorPayments.length === 0) {
+        container.style.display = 'none';
+        return;
+      }
+      
+      container.style.display = 'block';
+      list.innerHTML = stagedVendorPayments.map((p, i) => `
+        <div style="display: flex; justify-content: space-between; background: var(--bg-color); padding: 10px 12px; border-radius: 8px; font-size: 13px; align-items: center; border: 1px solid var(--border-color);">
+          <div>
+            <strong style="color:var(--primary-blue);">${p.vendorName}</strong> <span style="color:var(--text-muted); font-size:11px;">(${p.paymentMode})</span><br>
+            <span style="color: var(--danger-red); font-weight: 700;">₹${formatINR(p.amount)}</span> ${p.fruit ? `<span style="color:var(--text-muted);">• ${p.fruit}</span>` : ''}
+          </div>
+          <button onclick="removeStagedPayment(${i})" style="background: none; border: none; color: var(--danger-red); font-size: 22px; cursor: pointer; padding: 0;">&times;</button>
+        </div>
+      `).join('');
+    }
+
+    async function saveAllVendorPayments() {
+      if(stagedVendorPayments.length === 0) return;
+      document.getElementById('saveBulkVendorBtn').innerText = 'Saving...';
+      await apiCall('addBulk', { target: 'payment', records: stagedVendorPayments });
+      stagedVendorPayments = [];
+      renderStagedPayments();
+      document.getElementById('saveBulkVendorBtn').innerText = 'Save All Payments';
+    }
+
+    // SINGLE ROW SAVE FOR SALES
     async function saveEntry(target) {
       if (target === 'sale') {
         const d = document.getElementById('entryDate').value;
@@ -526,28 +606,7 @@
         await apiCall('add', { target: 'sale', record: { date: d, credit: document.getElementById('credit').value, upi: document.getElementById('upi').value, cashCounted: document.getElementById('cashCounted').value, cheque: document.getElementById('cheque').value, others: document.getElementById('others').value } });
         document.getElementById('saveBtn').innerText = '+';
         ['credit','upi','cashCounted','cheque','others'].forEach(id => document.getElementById(id).value = 0);
-      } else {
-        let v = document.getElementById('vendorNameInput').value.trim();
-        const f = document.getElementById('vendorFruit').value.trim();
-        const m = document.getElementById('vendorPaymentMode').value;
-        const a = document.getElementById('vendorAmount').value;
-        
-        if(!v) return alert("Enter a Vendor Name.");
-        if(!a || a <= 0) return alert("Enter a valid amount.");
-        
-        // Auto-correct case if user types existing vendor with wrong capitalization
-        if (appData.uniqueVendors) {
-          const existingVendor = appData.uniqueVendors.find(uv => uv.toLowerCase() === v.toLowerCase());
-          if (existingVendor) v = existingVendor;
-        }
-
-        document.getElementById('saveVendorBtn').innerText = '...';
-        await apiCall('add', { target: 'payment', record: { date: document.getElementById('vendorDate').value, vendorName: v, fruit: f, paymentMode: m, amount: a } });
-        document.getElementById('saveVendorBtn').innerText = '+';
-        document.getElementById('vendorNameInput').value = '';
-        document.getElementById('vendorFruit').value = ''; 
-        document.getElementById('vendorAmount').value = 0;
-      }
+      } 
     }
 
     function editPrompt(id) {
