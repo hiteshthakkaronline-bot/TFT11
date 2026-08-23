@@ -79,7 +79,7 @@
     .fab-menu:active { transform: scale(0.95); }
     #dashboard-section { display: none; }
     
-    /* Increased base height to allow extensive multi-line legends to fit without squishing the chart */
+    /* Responsive height to comfortably enclose massive vendor legends */
     .chart-wrapper { position: relative; min-height: 450px; height: 60vh; width: 100%; margin-top: 10px; }
 
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 16px; box-sizing: border-box; }
@@ -539,7 +539,9 @@
       }
       document.getElementById('vendor-month-calc').innerText = now.toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(vendorMonthTotalAmt);
 
-      if (dashboardOpen) renderChart();
+      if (dashboardOpen) {
+        renderChart();
+      }
     }
 
     function stageVendorPayment() {
