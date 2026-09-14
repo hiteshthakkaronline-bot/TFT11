@@ -89,13 +89,30 @@
     .cancel-btn { background: var(--border-color); color: var(--text-main); border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
     .save-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
 
-    body.privacy-mode .amt-val { filter: blur(6px); opacity: 0.6; }
+    /* Receipt Build UI */
+    .receipt-vendor-block { border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--card-bg); }
+    .receipt-fruit-row { display: grid; grid-template-columns: 1fr 2fr 38px; gap: 8px; align-items: center; margin-top: 8px; }
+
+    body.privacy-mode .amt-val, body.privacy-mode .receipt-group-val { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode input[type="number"], body.privacy-mode select { filter: blur(6px); opacity: 0.6; pointer-events: none; }
-    body.privacy-mode #month-calc, body.privacy-mode #vendor-month-calc, body.privacy-mode #dashMonthTotal { filter: blur(6px); opacity: 0.6; }
+    body.privacy-mode #month-calc, body.privacy-mode #vendor-month-calc, body.privacy-mode #dashMonthTotal, body.privacy-mode #receiptTotalCarriage { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode .chart-wrapper { filter: blur(6px); opacity: 0.6; pointer-events: none; }
   </style>
 </head>
 <body class="privacy-mode">
+
+  <datalist id="fruitDatalist">
+    <option value="Anar">Anar</option>
+    <option value="Tarbooz">Tarbooz</option>
+    <option value="Sarda">Sarda</option>
+    <option value="Pineapple">Pineapple</option>
+    <option value="Amrood">Amrood</option>
+    <option value="Kharbooja">Kharbooja</option>
+    <option value="Dragon">Dragon</option>
+    <option value="Sharifa">Sharifa</option>
+    <option value="Daab">Daab</option>
+  </datalist>
+  <datalist id="vendorDatalist"></datalist>
 
   <div id="login-screen">
     <div class="card" style="text-align: center; padding: 30px;">
@@ -169,7 +186,6 @@
             <div class="input-group">
               <label>Vendor Name</label>
               <input type="text" id="vendorNameInput" list="vendorDatalist" placeholder="Search or add new..." autocomplete="off">
-              <datalist id="vendorDatalist"></datalist>
             </div>
             <div class="input-group">
               <label>Payment Mode</label>
@@ -181,7 +197,7 @@
             </div>
           </div>
           <div class="amounts-row" style="grid-template-columns: 1fr 1fr 44px; gap: 8px; margin-top:6px;">
-            <div class="input-group"><label>Fruit (Optional)</label><input type="text" id="vendorFruit" placeholder="e.g. Apple"></div>
+            <div class="input-group"><label>Fruit (Optional)</label><input type="text" id="vendorFruit" list="fruitDatalist" placeholder="e.g. Apple"></div>
             <div class="input-group"><label>Amount (₹)</label><input type="number" id="vendorAmount" value="0" step="any"></div>
             <button class="add-btn" id="stageVendorBtn" onclick="stageVendorPayment()">+</button>
           </div>
@@ -201,6 +217,37 @@
           <span style="font-size: 14px; color: var(--text-muted); font-weight: 600;" id="vendor-month-calc"></span>
         </div>
         <div class="list-container" id="vendor-list-body">
+          <div style="text-align: center; padding: 20px; color: var(--text-muted);">Loading data...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: VENDOR RECEIPTS -->
+    <div id="receipt-section" style="display: none;">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="margin: 0;">Log Daily Receipts</h3>
+          <span style="font-size: 14px; font-weight: 700; color: var(--primary-blue);">Total: ₹<span id="receiptTotalCarriage">0</span></span>
+        </div>
+        
+        <div class="input-group" style="margin-bottom: 16px;">
+          <label>Date</label>
+          <input type="date" id="receiptDate" required>
+        </div>
+
+        <div id="receiptVendorsContainer">
+          <!-- Dynamic Vendor Blocks injected here -->
+        </div>
+
+        <button class="load-more-btn" style="margin-top:0; margin-bottom: 16px;" onclick="addReceiptVendorBlock()">+ Add Another Vendor</button>
+        <button class="add-btn" style="font-size: 16px; background: #10b981;" id="saveReceiptsBtn" onclick="saveAllReceipts()">Save All Receipts</button>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0;">Recent Receipts</h3>
+        </div>
+        <div class="list-container" id="receipt-list-body">
           <div style="text-align: center; padding: 20px; color: var(--text-muted);">Loading data...</div>
         </div>
       </div>
@@ -230,7 +277,11 @@
     </div>
     <div class="nav-item" id="nav-vendor" onclick="switchTab('vendor')">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
-      Vendor Payments
+      Payments
+    </div>
+    <div class="nav-item" id="nav-receipt" onclick="switchTab('receipt')">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8"></path><polyline points="1 3 23 3 23 8 1 8 1 3"></polyline><path d="M10 12h4"></path></svg>
+      Receipts
     </div>
   </nav>
 
@@ -261,7 +312,6 @@
         <div class="input-group">
           <label>Vendor Name</label>
           <input type="text" id="editVendorNameInput" list="editVendorDatalist" autocomplete="off">
-          <datalist id="editVendorDatalist"></datalist>
         </div>
         <div class="input-group"><label>Fruit</label><input type="text" id="editVendorFruit"></div>
         <div class="input-group">
@@ -284,11 +334,13 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
-    let appData = { sale: [], payment: [], uniqueVendors: [], vendorChartData: {} };
+    let appData = { sale: [], payment: [], receipt: [], uniqueVendors: [], vendorChartData: {} };
     let chartData = {}; 
     let dashboardOpen = false;
     let currentTab = 'sale';
     let stagedVendorPayments = [];
+
+    let receiptDraft = [];
 
     try {
       const cData = localStorage.getItem('tft_cache_state');
@@ -306,8 +358,8 @@
     let mtdTotal = localStorage.getItem('tft_cache_total') || 0;
     if (mtdTotal === "undefined" || mtdTotal === "null") mtdTotal = 0;
 
-    let offsets = { sale: 0, payment: 0 };
-    let hasMore = { sale: false, payment: false };
+    let offsets = { sale: 0, payment: 0, receipt: 0 };
+    let hasMore = { sale: false, payment: false, receipt: false };
     let activeEditId = null; 
     let activeVendorEditId = null;
 
@@ -354,6 +406,9 @@
       const todayInit = new Date().toISOString().split('T')[0];
       document.getElementById('entryDate').value = todayInit;
       document.getElementById('vendorDate').value = todayInit;
+      document.getElementById('receiptDate').value = todayInit;
+
+      addReceiptVendorBlock();
 
       if (currentUserEmail) {
         document.getElementById('login-screen').style.display = 'none';
@@ -396,7 +451,9 @@
       
       document.getElementById('sale-section').style.display = tab === 'sale' ? 'block' : 'none';
       document.getElementById('vendor-section').style.display = tab === 'vendor' ? 'block' : 'none';
-      document.getElementById('fabMenu').style.display = 'flex'; 
+      document.getElementById('receipt-section').style.display = tab === 'receipt' ? 'block' : 'none';
+      
+      document.getElementById('fabMenu').style.display = tab === 'receipt' ? 'none' : 'flex'; 
     }
 
     function toggleDashboard() {
@@ -404,6 +461,7 @@
       if (dashboardOpen) {
         document.getElementById('sale-section').style.display = 'none';
         document.getElementById('vendor-section').style.display = 'none';
+        document.getElementById('receipt-section').style.display = 'none';
         document.getElementById('dashboard-section').style.display = 'block';
         
         if (currentTab === 'sale') {
@@ -428,8 +486,7 @@
         setTimeout(() => renderChart(), 50); 
       } else {
         document.getElementById('dashboard-section').style.display = 'none';
-        document.getElementById('sale-section').style.display = currentTab === 'sale' ? 'block' : 'none';
-        document.getElementById('vendor-section').style.display = currentTab === 'vendor' ? 'block' : 'none';
+        switchTab(currentTab); 
       }
     }
 
@@ -441,11 +498,13 @@
         if (result.error) return alert("Database Error: " + result.error);
 
         if (action === 'loadMore') {
-          if (data.target === 'sale') { appData.sale = [...appData.sale, ...(result.saleRows||[])]; offsets.sale += 10; hasMore.sale = result.saleHasMore; }
-          else { appData.payment = [...appData.payment, ...(result.paymentRows||[])]; offsets.payment += 10; hasMore.payment = result.paymentHasMore; }
+          if (data.target === 'sale') { appData.sale = [...appData.sale, ...(result.saleRows||[])]; offsets.sale += 50; hasMore.sale = result.saleHasMore; }
+          else if (data.target === 'payment') { appData.payment = [...appData.payment, ...(result.paymentRows||[])]; offsets.payment += 50; hasMore.payment = result.paymentHasMore; }
+          else if (data.target === 'receipt') { appData.receipt = [...(appData.receipt||[]), ...(result.receiptRows||[])]; offsets.receipt += 50; hasMore.receipt = result.receiptHasMore; }
         } else {
           if (result.saleRows) { appData.sale = result.saleRows; offsets.sale = 0; hasMore.sale = result.saleHasMore; }
           if (result.paymentRows) { appData.payment = result.paymentRows; offsets.payment = 0; hasMore.payment = result.paymentHasMore; }
+          if (result.receiptRows) { appData.receipt = result.receiptRows; offsets.receipt = 0; hasMore.receipt = result.receiptHasMore; }
           if (result.uniqueVendors) appData.uniqueVendors = result.uniqueVendors;
           if (result.vendorChartData) appData.vendorChartData = result.vendorChartData;
           if (result.chartData) { chartData = result.chartData; localStorage.setItem('tft_cache_chart', JSON.stringify(chartData)); }
@@ -462,20 +521,16 @@
 
     function renderAll() {
       const datalist = document.getElementById('vendorDatalist');
-      const editDatalist = document.getElementById('editVendorDatalist');
       datalist.innerHTML = '';
-      editDatalist.innerHTML = '';
       
       if (appData.uniqueVendors) {
         appData.uniqueVendors.forEach(v => {
           const opt = document.createElement('option'); opt.value = v;
           datalist.appendChild(opt);
-          const eOpt = document.createElement('option'); eOpt.value = v;
-          editDatalist.appendChild(eOpt);
         });
       }
 
-      // Sale Render
+      // ---- 1. Sale Render ----
       let sHtml = '';
       if (appData.sale) {
         appData.sale.forEach(row => {
@@ -505,10 +560,10 @@
         });
       }
       document.getElementById('data-list-body').innerHTML = sHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No records yet</div>';
-      if (hasMore.sale) document.getElementById('data-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'sale', offset: offsets.sale+10})">Load More Sales</button>`;
+      if (hasMore.sale) document.getElementById('data-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'sale', offset: offsets.sale+50})">Load More Sales</button>`;
       document.getElementById('month-calc').innerText = new Date().toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(mtdTotal);
 
-      // Payment Render
+      // ---- 2. Payment Render ----
       let pHtml = '';
       if (appData.payment) {
         appData.payment.forEach(row => {
@@ -539,7 +594,7 @@
         });
       }
       document.getElementById('vendor-list-body').innerHTML = pHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No records yet</div>';
-      if (hasMore.payment) document.getElementById('vendor-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'payment', offset: offsets.payment+10})">Load More Payments</button>`;
+      if (hasMore.payment) document.getElementById('vendor-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'payment', offset: offsets.payment+50})">Load More Payments</button>`;
 
       let vendorMonthTotalAmt = 0;
       const now = new Date();
@@ -549,10 +604,211 @@
       }
       document.getElementById('vendor-month-calc').innerText = now.toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(vendorMonthTotalAmt);
 
-      if (dashboardOpen) {
-        renderChart();
+
+      // ---- 3. Receipt Grouped Render ----
+      let rHtml = '';
+      if (appData.receipt && appData.receipt.length > 0) {
+        const groupedReceipts = {};
+        const dateOrder = [];
+
+        appData.receipt.forEach(row => {
+          if (!row.Date) return;
+          const dateStr = new Date(row.Date).toISOString().split('T')[0];
+          
+          if (!groupedReceipts[dateStr]) {
+            groupedReceipts[dateStr] = { dateObj: new Date(row.Date), totalCarriage: 0, vendors: {} };
+            dateOrder.push(dateStr);
+          }
+          
+          const vName = row['Vendor Name'] || 'Unknown';
+          if (!groupedReceipts[dateStr].vendors[vName]) {
+            groupedReceipts[dateStr].vendors[vName] = { carriage: 0, fruitStrings: [] };
+          }
+
+          groupedReceipts[dateStr].vendors[vName].carriage += (Number(row['Carriage Amount']) || 0);
+          groupedReceipts[dateStr].totalCarriage += (Number(row['Carriage Amount']) || 0);
+
+          if (row.Quantity && row['Fruit Name']) {
+            groupedReceipts[dateStr].vendors[vName].fruitStrings.push(`${row.Quantity} ${row['Fruit Name']}`);
+          }
+        });
+
+        dateOrder.sort((a,b) => new Date(b) - new Date(a));
+
+        dateOrder.forEach(dateStr => {
+          const gDate = groupedReceipts[dateStr];
+          const displayDate = gDate.dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+          
+          rHtml += `<div style="border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 12px;">`;
+          rHtml += `<div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
+                      <span style="font-weight:700; font-size:14px;">${displayDate}</span>
+                      <span style="font-weight:700; color:var(--primary-blue); font-size:14px;">Total: ₹${formatINR(gDate.totalCarriage)}</span>
+                    </div>`;
+          
+          Object.keys(gDate.vendors).forEach(vName => {
+            const vData = gDate.vendors[vName];
+            const fruitsCombined = vData.fruitStrings.join(' + ') || '-';
+            rHtml += `<div style="display: grid; grid-template-columns: 80px 70px 1fr; gap: 8px; margin-bottom: 6px; font-size: 13px;">
+                        <div style="font-weight: 600; color: var(--text-main); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${vName}</div>
+                        <div style="color: var(--danger-red); font-weight: 500;">₹${formatINR(vData.carriage)}</div>
+                        <div class="receipt-group-val" style="color: var(--text-muted); line-height: 1.3;">${fruitsCombined}</div>
+                      </div>`;
+          });
+          rHtml += `</div>`;
+        });
+      }
+
+      document.getElementById('receipt-list-body').innerHTML = rHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No receipts yet</div>';
+      if (hasMore.receipt) document.getElementById('receipt-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'receipt', offset: offsets.receipt+50})">Load Older Receipts</button>`;
+
+      if (dashboardOpen) renderChart();
+    }
+
+
+    /* ========================================================
+       RECEIPTS DYNAMIC BUILDER LOGIC
+       ======================================================== */
+
+    function addReceiptVendorBlock() {
+      receiptDraft.push({ vendorName: '', carriage: 0, fruits: [{ name: '', qty: '' }] });
+      renderReceiptDraft();
+    }
+
+    function removeReceiptVendorBlock(vIndex) {
+      receiptDraft.splice(vIndex, 1);
+      renderReceiptDraft();
+    }
+
+    function addReceiptFruitRow(vIndex) {
+      receiptDraft[vIndex].fruits.push({ name: '', qty: '' });
+      renderReceiptDraft();
+    }
+
+    function removeReceiptFruitRow(vIndex, fIndex) {
+      receiptDraft[vIndex].fruits.splice(fIndex, 1);
+      renderReceiptDraft();
+    }
+
+    function updateReceiptDraft(type, vIndex, fIndex, element) {
+      if (type === 'vendorName') receiptDraft[vIndex].vendorName = element.value;
+      if (type === 'carriage') receiptDraft[vIndex].carriage = element.value;
+      if (type === 'fruitName') receiptDraft[vIndex].fruits[fIndex].name = element.value;
+      if (type === 'fruitQty') receiptDraft[vIndex].fruits[fIndex].qty = element.value;
+      
+      if (type === 'carriage') {
+        let total = 0;
+        receiptDraft.forEach(v => total += (Number(v.carriage) || 0));
+        document.getElementById('receiptTotalCarriage').innerText = formatINR(total);
       }
     }
+
+    function renderReceiptDraft() {
+      const container = document.getElementById('receiptVendorsContainer');
+      let html = '';
+      let totalCarriage = 0;
+
+      receiptDraft.forEach((vendor, vIndex) => {
+        totalCarriage += (Number(vendor.carriage) || 0);
+        
+        let vColor = 'var(--text-main)';
+        if (vendor.vendorName && appData.uniqueVendors) {
+          const match = appData.uniqueVendors.find(uv => uv.toLowerCase() === vendor.vendorName.toLowerCase().trim());
+          if (match) vColor = '#10b981'; 
+          else vColor = 'var(--danger-red)'; 
+        }
+
+        html += `
+        <div class="receipt-vendor-block">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h4 style="margin: 0; font-size: 13px; color: var(--text-muted);">VENDOR ${vIndex + 1}</h4>
+            ${receiptDraft.length > 1 ? `<button onclick="removeReceiptVendorBlock(${vIndex})" style="background:none; border:none; color:var(--danger-red); cursor:pointer; font-size:18px; padding:0;">&times;</button>` : ''}
+          </div>
+          
+          <div class="amounts-row" style="grid-template-columns: 1.5fr 1fr; margin-bottom: 12px;">
+            <div class="input-group">
+              <label>Vendor Name</label>
+              <input type="text" list="vendorDatalist" value="${vendor.vendorName}" oninput="updateReceiptDraft('vendorName', ${vIndex}, null, this); renderReceiptDraft();" style="color: ${vColor}; font-weight: 600;" placeholder="Name...">
+            </div>
+            <div class="input-group">
+              <label>Carriage Amount (₹)</label>
+              <input type="number" value="${vendor.carriage}" step="any" oninput="updateReceiptDraft('carriage', ${vIndex}, null, this)">
+            </div>
+          </div>
+        `;
+
+        vendor.fruits.forEach((fruit, fIndex) => {
+          html += `
+          <div class="receipt-fruit-row">
+            <div class="input-group"><label style="${fIndex > 0 ? 'display:none;' : ''}">Qty</label><input type="number" value="${fruit.qty}" step="any" oninput="updateReceiptDraft('fruitQty', ${vIndex}, ${fIndex}, this)"></div>
+            <div class="input-group"><label style="${fIndex > 0 ? 'display:none;' : ''}">Fruit Name</label><input type="text" list="fruitDatalist" value="${fruit.name}" oninput="updateReceiptDraft('fruitName', ${vIndex}, ${fIndex}, this)"></div>
+            ${fIndex > 0 ? `<button onclick="removeReceiptFruitRow(${vIndex}, ${fIndex})" style="background:none; border:none; color:var(--danger-red); cursor:pointer; font-size:22px; padding:0;">&times;</button>` : '<div></div>'}
+          </div>`;
+        });
+
+        html += `
+          <div style="margin-top: 12px;">
+            <button style="background: none; border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--primary-blue);" onclick="addReceiptFruitRow(${vIndex})">+ Add Fruit</button>
+          </div>
+        </div>`;
+      });
+
+      container.innerHTML = html;
+      document.getElementById('receiptTotalCarriage').innerText = formatINR(totalCarriage);
+    }
+
+    async function saveAllReceipts() {
+      const date = document.getElementById('receiptDate').value;
+      if (!date) return alert("Please select a date.");
+
+      let records = [];
+      let hasError = false;
+
+      receiptDraft.forEach(v => {
+        if (!v.vendorName) return;
+        
+        let correctedVendorName = v.vendorName.trim();
+        if (appData.uniqueVendors) {
+          const match = appData.uniqueVendors.find(uv => uv.toLowerCase() === correctedVendorName.toLowerCase());
+          if (match) correctedVendorName = match;
+        }
+
+        let isFirstFruitForVendor = true;
+
+        v.fruits.forEach(f => {
+          if (!f.qty && !f.name) return; 
+          if ((f.qty && !f.name) || (!f.qty && f.name)) {
+            alert(`Incomplete fruit entry under vendor: ${correctedVendorName}. Both Qty and Name are required.`);
+            hasError = true;
+            return;
+          }
+
+          records.push({
+            date: date,
+            vendorName: correctedVendorName,
+            fruitName: f.name.trim(),
+            quantity: f.qty,
+            carriageAmount: isFirstFruitForVendor ? (Number(v.carriage) || 0) : 0
+          });
+
+          isFirstFruitForVendor = false;
+        });
+      });
+
+      if (hasError) return;
+      if (records.length === 0) return alert("Please add at least one valid vendor and fruit row to save.");
+
+      document.getElementById('saveReceiptsBtn').innerText = 'Saving...';
+      await apiCall('addBulk', { target: 'receipt', records: records });
+      
+      receiptDraft = [{ vendorName: '', carriage: 0, fruits: [{ name: '', qty: '' }] }];
+      renderReceiptDraft();
+      document.getElementById('saveReceiptsBtn').innerText = 'Save All Receipts';
+    }
+
+
+    /* ========================================================
+       EXISTING PAYMENT STAGING LOGIC
+       ======================================================== */
 
     function stageVendorPayment() {
       let v = document.getElementById('vendorNameInput').value.trim();
@@ -613,6 +869,10 @@
       renderStagedPayments();
       document.getElementById('saveBulkVendorBtn').innerText = 'Save All Payments';
     }
+
+    /* ========================================================
+       EXISTING SALE LOGIC
+       ======================================================== */
 
     async function saveEntry(target) {
       if (target === 'sale') {
