@@ -498,9 +498,9 @@
         if (result.error) return alert("Database Error: " + result.error);
 
         if (action === 'loadMore') {
-          if (data.target === 'sale') { appData.sale = [...appData.sale, ...(result.saleRows||[])]; offsets.sale += 50; hasMore.sale = result.saleHasMore; }
-          else if (data.target === 'payment') { appData.payment = [...appData.payment, ...(result.paymentRows||[])]; offsets.payment += 50; hasMore.payment = result.paymentHasMore; }
-          else if (data.target === 'receipt') { appData.receipt = [...(appData.receipt||[]), ...(result.receiptRows||[])]; offsets.receipt += 50; hasMore.receipt = result.receiptHasMore; }
+          if (data.target === 'sale') { appData.sale = [...appData.sale, ...(result.saleRows||[])]; offsets.sale += 10; hasMore.sale = result.saleHasMore; }
+          else if (data.target === 'payment') { appData.payment = [...appData.payment, ...(result.paymentRows||[])]; offsets.payment += 10; hasMore.payment = result.paymentHasMore; }
+          else if (data.target === 'receipt') { appData.receipt = [...(appData.receipt||[]), ...(result.receiptRows||[])]; offsets.receipt += 10; hasMore.receipt = result.receiptHasMore; }
         } else {
           if (result.saleRows) { appData.sale = result.saleRows; offsets.sale = 0; hasMore.sale = result.saleHasMore; }
           if (result.paymentRows) { appData.payment = result.paymentRows; offsets.payment = 0; hasMore.payment = result.paymentHasMore; }
@@ -560,7 +560,7 @@
         });
       }
       document.getElementById('data-list-body').innerHTML = sHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No records yet</div>';
-      if (hasMore.sale) document.getElementById('data-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'sale', offset: offsets.sale+50})">Load More Sales</button>`;
+      if (hasMore.sale) document.getElementById('data-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'sale', offset: offsets.sale+10})">Load More Sales</button>`;
       document.getElementById('month-calc').innerText = new Date().toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(mtdTotal);
 
       // ---- 2. Payment Render ----
@@ -594,7 +594,7 @@
         });
       }
       document.getElementById('vendor-list-body').innerHTML = pHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No records yet</div>';
-      if (hasMore.payment) document.getElementById('vendor-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'payment', offset: offsets.payment+50})">Load More Payments</button>`;
+      if (hasMore.payment) document.getElementById('vendor-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'payment', offset: offsets.payment+10})">Load More Payments</button>`;
 
       let vendorMonthTotalAmt = 0;
       const now = new Date();
@@ -659,7 +659,7 @@
       }
 
       document.getElementById('receipt-list-body').innerHTML = rHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No receipts yet</div>';
-      if (hasMore.receipt) document.getElementById('receipt-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'receipt', offset: offsets.receipt+50})">Load Older Receipts</button>`;
+      if (hasMore.receipt) document.getElementById('receipt-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'receipt', offset: offsets.receipt+10})">Load Older Receipts</button>`;
 
       if (dashboardOpen) renderChart();
     }
@@ -741,7 +741,7 @@
           <div class="receipt-fruit-row">
             <div class="input-group"><label style="${fIndex > 0 ? 'display:none;' : ''}">Qty</label><input type="number" value="${fruit.qty}" step="any" oninput="updateReceiptDraft('fruitQty', ${vIndex}, ${fIndex}, this)"></div>
             <div class="input-group"><label style="${fIndex > 0 ? 'display:none;' : ''}">Fruit Name</label><input type="text" list="fruitDatalist" value="${fruit.name}" oninput="updateReceiptDraft('fruitName', ${vIndex}, ${fIndex}, this)"></div>
-            ${fIndex > 0 ? `<button onclick="removeReceiptFruitRow(${vIndex}, ${fIndex})" style="background:none; border:none; color:var(--danger-red); cursor:pointer; font-size:22px; padding:0;">&times;</button>` : '<div></div>'}
+            ${fIndex > 0 ? `<button onclick="removeReceiptFruitRow(${vIndex},${fIndex})" style="background:none; border:none; color:var(--danger-red); cursor:pointer; font-size:22px; padding:0;">&times;</button>` : '<div></div>'}
           </div>`;
         });
 
