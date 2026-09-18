@@ -91,7 +91,7 @@
 
     /* Receipt Build UI */
     .receipt-vendor-block { border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--card-bg); }
-    .receipt-fruit-row { display: grid; grid-template-columns: 1fr 2fr 38px; gap: 8px; align-items: center; margin-top: 8px; }
+    .receipt-fruit-row { display: grid; grid-template-columns: 1fr 2.5fr 38px 38px; gap: 6px; align-items: end; margin-top: 8px; }
 
     /* Compact Table Styles */
     .table-wrapper { overflow-x: auto; width: 100%; margin-bottom: 8px; border-radius: 8px; border: 1px solid var(--border-color); }
@@ -235,7 +235,7 @@
     <div id="receipt-section" style="display: none;">
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <h3 style="margin: 0;">Log Daily Receipts</h3>
+          <h3 style="margin: 0;">Log Receipt</h3>
           <span style="font-size: 14px; font-weight: 700; color: var(--primary-blue);">Total: ₹<span id="receiptTotalCarriage">0</span></span>
         </div>
         
@@ -248,8 +248,15 @@
           <!-- Dynamic Vendor Blocks injected here -->
         </div>
 
-        <button class="load-more-btn" style="margin-top:0; margin-bottom: 16px;" onclick="addReceiptVendorBlock()">+ Add Another Vendor</button>
-        <button class="add-btn" style="font-size: 16px; background: #10b981;" id="saveReceiptsBtn" onclick="saveAllReceipts()">Save All Receipts</button>
+        <!-- Compact Side-by-Side Action Buttons -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;">
+          <button class="load-more-btn" style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px;" onclick="addReceiptVendorBlock()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg> Vendor
+          </button>
+          <button class="add-btn" style="margin: 0; font-size: 15px; background: #10b981; display: flex; align-items: center; justify-content: center; gap: 6px;" id="saveReceiptsBtn" onclick="saveAllReceipts()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Save All
+          </button>
+        </div>
       </div>
 
       <div class="card">
@@ -655,13 +662,13 @@
           rHtml += `<div style="border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 12px;">`;
           rHtml += `<div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
                       <span style="font-weight:700; font-size:14px;">${displayDate}</span>
-                      <span style="font-weight:700; color:var(--primary-blue); font-size:14px;">Total Carriage: ₹${formatINR(gDate.totalCarriage)}</span>
+                      <span style="font-weight:700; color:var(--primary-blue); font-size:14px;">Total: ₹${formatINR(gDate.totalCarriage)}</span>
                     </div>`;
           
           rHtml += `<div class="table-wrapper"><table class="compact-table">
                       <thead>
                         <tr>
-                          <th>S No</th><th>Vendor</th><th>Fruit</th><th>Quantity</th><th>Carriage Amount</th>
+                          <th>S NO</th><th>VENDOR</th><th>FRUIT</th><th>QTY</th><th>CARRIAGE</th>
                         </tr>
                       </thead>
                       <tbody>`;
@@ -724,16 +731,24 @@
     }
 
     function updateReceiptDraft(type, vIndex, fIndex, element) {
-      if (type === 'vendorName') receiptDraft[vIndex].vendorName = element.value;
-      if (type === 'carriage') receiptDraft[vIndex].carriage = element.value;
-      if (type === 'fruitName') receiptDraft[vIndex].fruits[fIndex].name = element.value;
-      if (type === 'fruitQty') receiptDraft[vIndex].fruits[fIndex].qty = element.value;
-      
+      if (type === 'vendorName') {
+        receiptDraft[vIndex].vendorName = element.value;
+        let vColor = 'var(--text-main)';
+        if (element.value && appData.uniqueVendors) {
+          const match = appData.uniqueVendors.find(uv => uv.toLowerCase() === element.value.toLowerCase().trim());
+          if (match) vColor = '#10b981'; 
+          else vColor = 'var(--danger-red)'; 
+        }
+        element.style.color = vColor;
+      }
       if (type === 'carriage') {
+        receiptDraft[vIndex].carriage = element.value;
         let total = 0;
         receiptDraft.forEach(v => total += (Number(v.carriage) || 0));
         document.getElementById('receiptTotalCarriage').innerText = formatINR(total);
       }
+      if (type === 'fruitName') receiptDraft[vIndex].fruits[fIndex].name = element.value;
+      if (type === 'fruitQty') receiptDraft[vIndex].fruits[fIndex].qty = element.value;
     }
 
     function renderReceiptDraft() {
@@ -761,10 +776,10 @@
           <div class="amounts-row" style="grid-template-columns: 1.5fr 1fr; margin-bottom: 12px;">
             <div class="input-group">
               <label>Vendor Name</label>
-              <input type="text" list="vendorDatalist" value="${vendor.vendorName}" oninput="updateReceiptDraft('vendorName', ${vIndex}, null, this); renderReceiptDraft();" style="color: ${vColor}; font-weight: 600;" placeholder="Name...">
+              <input type="text" list="vendorDatalist" value="${vendor.vendorName}" oninput="updateReceiptDraft('vendorName', ${vIndex}, null, this)" style="color: ${vColor}; font-weight: 600;" placeholder="Name...">
             </div>
             <div class="input-group">
-              <label>Carriage Amount (₹)</label>
+              <label>Carriage (₹)</label>
               <input type="number" value="${vendor.carriage}" step="any" oninput="updateReceiptDraft('carriage', ${vIndex}, null, this)">
             </div>
           </div>
@@ -774,15 +789,13 @@
           html += `
           <div class="receipt-fruit-row">
             <div class="input-group"><label style="${fIndex > 0 ? 'display:none;' : ''}">Qty</label><input type="number" value="${fruit.qty}" step="any" oninput="updateReceiptDraft('fruitQty', ${vIndex}, ${fIndex}, this)"></div>
-            <div class="input-group"><label style="${fIndex > 0 ? 'display:none;' : ''}">Fruit Name</label><input type="text" list="fruitDatalist" value="${fruit.name}" oninput="updateReceiptDraft('fruitName', ${vIndex}, ${fIndex}, this)"></div>
-            ${fIndex > 0 ? `<button onclick="removeReceiptFruitRow(${vIndex},${fIndex})" style="background:none; border:none; color:var(--danger-red); cursor:pointer; font-size:22px; padding:0;">&times;</button>` : '<div></div>'}
+            <div class="input-group"><label style="${fIndex > 0 ? 'display:none;' : ''}">Fruit</label><input type="text" list="fruitDatalist" value="${fruit.name}" oninput="updateReceiptDraft('fruitName', ${vIndex}, ${fIndex}, this)"></div>
+            ${fIndex === vendor.fruits.length - 1 ? `<button onclick="addReceiptFruitRow(${vIndex})" class="action-btn edit-btn" style="height: 38px; justify-content: center; padding: 0;">+</button>` : '<div></div>'}
+            ${fIndex > 0 ? `<button onclick="removeReceiptFruitRow(${vIndex},${fIndex})" class="action-btn del-btn" style="height: 38px; justify-content: center; padding: 0;">&times;</button>` : '<div></div>'}
           </div>`;
         });
 
         html += `
-          <div style="margin-top: 12px;">
-            <button style="background: none; border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--primary-blue);" onclick="addReceiptFruitRow(${vIndex})">+ Add Fruit</button>
-          </div>
         </div>`;
       });
 
@@ -811,7 +824,7 @@
         v.fruits.forEach(f => {
           if (!f.qty && !f.name) return; 
           if ((f.qty && !f.name) || (!f.qty && f.name)) {
-            alert(`Incomplete fruit entry under vendor: ${correctedVendorName}. Both Qty and Name are required.`);
+            alert(`Incomplete fruit entry under vendor: ${correctedVendorName}. Both Qty and Fruit are required.`);
             hasError = true;
             return;
           }
@@ -836,7 +849,7 @@
       
       receiptDraft = [{ vendorName: '', carriage: 0, fruits: [{ name: '', qty: '' }] }];
       renderReceiptDraft();
-      document.getElementById('saveReceiptsBtn').innerText = 'Save All Receipts';
+      document.getElementById('saveReceiptsBtn').innerText = 'Save All';
     }
 
 
