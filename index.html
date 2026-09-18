@@ -67,7 +67,8 @@
     .amt-total .amt-val { font-weight: 700; color: var(--primary-blue); }
     
     .action-col { display: flex; gap: 6px; justify-content: flex-end; }
-    .sale-card .action-col, .vendor-card .action-col { grid-column: 4; grid-row: 1 / span 2; align-items: center; }
+    .sale-card .action-col { grid-column: 4; grid-row: 1 / span 2; }
+    .vendor-card .action-col { grid-column: 4; grid-row: 2 / span 2; align-items: flex-start; justify-content: flex-end; }
     
     .action-btn { background: none; border: 1px solid; border-radius: 4px; padding: 6px; cursor: pointer; display: flex; align-items: center; height: fit-content; }
     .edit-btn { color: var(--primary-blue); border-color: var(--primary-blue); }
@@ -92,7 +93,17 @@
     .receipt-vendor-block { border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--card-bg); }
     .receipt-fruit-row { display: grid; grid-template-columns: 1fr 2fr 38px; gap: 8px; align-items: center; margin-top: 8px; }
 
-    body.privacy-mode .amt-val, body.privacy-mode .receipt-group-val { filter: blur(6px); opacity: 0.6; }
+    /* Compact Table Styles */
+    .table-wrapper { overflow-x: auto; width: 100%; margin-bottom: 8px; border-radius: 8px; border: 1px solid var(--border-color); }
+    .compact-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .compact-table th { background: #f8fafc; color: var(--text-muted); font-weight: 600; text-align: right; padding: 8px 6px; border-bottom: 2px solid var(--border-color); white-space: nowrap; }
+    .compact-table th:nth-child(1), .compact-table th:nth-child(2), .compact-table th:nth-child(3) { text-align: left; }
+    .compact-table td { padding: 8px 6px; border-bottom: 1px solid var(--border-color); text-align: right; color: var(--text-main); white-space: nowrap; }
+    .compact-table td:nth-child(1), .compact-table td:nth-child(2), .compact-table td:nth-child(3) { text-align: left; }
+    .compact-table tr:last-child td { border-bottom: none; }
+    [data-theme="dark"] .compact-table th { background: #0f172a; }
+
+    body.privacy-mode .amt-val, body.privacy-mode td { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode input[type="number"], body.privacy-mode select { filter: blur(6px); opacity: 0.6; pointer-events: none; }
     body.privacy-mode #month-calc, body.privacy-mode #vendor-month-calc, body.privacy-mode #dashMonthTotal, body.privacy-mode #receiptTotalCarriage { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode .chart-wrapper { filter: blur(6px); opacity: 0.6; pointer-events: none; }
@@ -196,9 +207,8 @@
             </div>
           </div>
           <div class="amounts-row" style="grid-template-columns: 1fr 1fr 44px; gap: 8px; margin-top:6px;">
-            <div class="input-group"><label>Fruit (Optional)</label><input type="text" id="vendorFruit" list="fruitDatalist" placeholder="e.g. Apple"></div>
             <div class="input-group"><label>Amount (₹)</label><input type="number" id="vendorAmount" value="0" step="any"></div>
-            <button class="add-btn" id="stageVendorBtn" onclick="stageVendorPayment()">+</button>
+            <button class="add-btn" id="stageVendorBtn" onclick="stageVendorPayment()" style="grid-column: 3;">+</button>
           </div>
         </div>
 
@@ -312,7 +322,6 @@
           <label>Vendor Name</label>
           <input type="text" id="editVendorNameInput" list="editVendorDatalist" autocomplete="off">
         </div>
-        <div class="input-group"><label>Fruit</label><input type="text" id="editVendorFruit"></div>
         <div class="input-group">
           <label>Payment Mode</label>
           <select id="editVendorMode">
@@ -616,21 +625,25 @@
           const dateStr = new Date(row.Date).toISOString().split('T')[0];
           
           if (!groupedReceipts[dateStr]) {
-            groupedReceipts[dateStr] = { dateObj: new Date(row.Date), totalCarriage: 0, vendors: {} };
+            groupedReceipts[dateStr] = { dateObj: new Date(row.Date), totalCarriage: 0, vendors: [] };
             dateOrder.push(dateStr);
           }
           
           const vName = row['Vendor Name'] || 'Unknown';
-          if (!groupedReceipts[dateStr].vendors[vName]) {
-            groupedReceipts[dateStr].vendors[vName] = { carriage: 0, fruitStrings: [] };
+          let vObj = groupedReceipts[dateStr].vendors.find(v => v.name === vName);
+          if (!vObj) {
+            vObj = { name: vName, carriage: 0, fruits: [] };
+            groupedReceipts[dateStr].vendors.push(vObj);
           }
 
-          groupedReceipts[dateStr].vendors[vName].carriage += (Number(row['Carriage Amount']) || 0);
-          groupedReceipts[dateStr].totalCarriage += (Number(row['Carriage Amount']) || 0);
+          const carriage = Number(row['Carriage Amount']) || 0;
+          vObj.carriage += carriage;
+          groupedReceipts[dateStr].totalCarriage += carriage;
 
-          if (row.Quantity && row['Fruit Name']) {
-            groupedReceipts[dateStr].vendors[vName].fruitStrings.push(`${row.Quantity} ${row['Fruit Name']}`);
-          }
+          vObj.fruits.push({
+            name: row['Fruit Name'] || '-',
+            qty: row['Quantity'] || ''
+          });
         });
 
         dateOrder.sort((a,b) => new Date(b) - new Date(a));
@@ -642,19 +655,40 @@
           rHtml += `<div style="border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 12px;">`;
           rHtml += `<div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
                       <span style="font-weight:700; font-size:14px;">${displayDate}</span>
-                      <span style="font-weight:700; color:var(--primary-blue); font-size:14px;">Total: ₹${formatINR(gDate.totalCarriage)}</span>
+                      <span style="font-weight:700; color:var(--primary-blue); font-size:14px;">Total Carriage: ₹${formatINR(gDate.totalCarriage)}</span>
                     </div>`;
           
-          Object.keys(gDate.vendors).forEach(vName => {
-            const vData = gDate.vendors[vName];
-            const fruitsCombined = vData.fruitStrings.join(' + ') || '-';
-            rHtml += `<div style="display: grid; grid-template-columns: 80px 70px 1fr; gap: 8px; margin-bottom: 6px; font-size: 13px;">
-                        <div style="font-weight: 600; color: var(--text-main); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${vName}</div>
-                        <div style="color: var(--danger-red); font-weight: 500;">₹${formatINR(vData.carriage)}</div>
-                        <div class="receipt-group-val" style="color: var(--text-muted); line-height: 1.3;">${fruitsCombined}</div>
-                      </div>`;
+          rHtml += `<div class="table-wrapper"><table class="compact-table">
+                      <thead>
+                        <tr>
+                          <th>S No</th><th>Vendor</th><th>Fruit</th><th>Quantity</th><th>Carriage Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>`;
+          
+          let sNo = 1;
+          gDate.vendors.forEach(vData => {
+            vData.fruits.forEach((f, idx) => {
+              rHtml += `<tr>`;
+              if (idx === 0) {
+                rHtml += `<td>${sNo}</td>
+                          <td style="font-weight:600;">${vData.name}</td>
+                          <td>${f.name}</td>
+                          <td>${f.qty}</td>
+                          <td style="color:var(--danger-red);">${vData.carriage ? vData.carriage : ''}</td>`;
+              } else {
+                rHtml += `<td></td>
+                          <td></td>
+                          <td>${f.name}</td>
+                          <td>${f.qty}</td>
+                          <td></td>`;
+              }
+              rHtml += `</tr>`;
+            });
+            sNo++;
           });
-          rHtml += `</div>`;
+
+          rHtml += `</tbody></table></div></div>`;
         });
       }
 
@@ -812,7 +846,6 @@
 
     function stageVendorPayment() {
       let v = document.getElementById('vendorNameInput').value.trim();
-      const f = document.getElementById('vendorFruit').value.trim();
       const m = document.getElementById('vendorPaymentMode').value;
       const a = document.getElementById('vendorAmount').value;
       const d = document.getElementById('vendorDate').value;
@@ -826,10 +859,9 @@
         if (existingVendor) v = existingVendor;
       }
 
-      stagedVendorPayments.push({ date: d, vendorName: v, fruit: f, paymentMode: m, amount: a });
+      stagedVendorPayments.push({ date: d, vendorName: v, paymentMode: m, amount: a });
       
       document.getElementById('vendorNameInput').value = '';
-      document.getElementById('vendorFruit').value = ''; 
       document.getElementById('vendorAmount').value = 0;
       
       renderStagedPayments();
@@ -854,7 +886,7 @@
         <div style="display: flex; justify-content: space-between; background: var(--bg-color); padding: 10px 12px; border-radius: 8px; font-size: 13px; align-items: center; border: 1px solid var(--border-color);">
           <div>
             <strong style="color:var(--primary-blue);">${p.vendorName}</strong> <span style="color:var(--text-muted); font-size:11px;">(${p.paymentMode})</span><br>
-            <span style="color: var(--danger-red); font-weight: 700;">₹${formatINR(p.amount)}</span> ${p.fruit ? `<span style="color:var(--text-muted);">• ${p.fruit}</span>` : ''}
+            <span style="color: var(--danger-red); font-weight: 700;">₹${formatINR(p.amount)}</span>
           </div>
           <button onclick="removeStagedPayment(${i})" style="background: none; border: none; color: var(--danger-red); font-size: 22px; cursor: pointer; padding: 0;">&times;</button>
         </div>
@@ -901,7 +933,6 @@
       if(!row) return; activeVendorEditId = id;
       document.getElementById('editVendorDate').value = new Date(row.Date).toISOString().split('T')[0];
       document.getElementById('editVendorNameInput').value = row['Vendor Name'] || '';
-      document.getElementById('editVendorFruit').value = row['Fruit'] || '';
       document.getElementById('editVendorMode').value = (row['Payment Mode'] === 'Bank Transfer') ? 'Transfer' : (row['Payment Mode'] || 'Cash');
       document.getElementById('editVendorAmount').value = row['Amount'] || 0;
       document.getElementById('vendorEditModalOverlay').style.display = 'flex';
@@ -928,7 +959,7 @@
 
       const targetId = activeVendorEditId; closeVendorEditModal();
       document.getElementById('vendor-list-body').innerHTML = '<div style="text-align: center; padding: 20px;">Updating...</div>';
-      apiCall('update', { target: 'payment', id: targetId, record: { date: document.getElementById('editVendorDate').value, vendorName: v, fruit: document.getElementById('editVendorFruit').value.trim(), paymentMode: document.getElementById('editVendorMode').value, amount: document.getElementById('editVendorAmount').value } });
+      apiCall('update', { target: 'payment', id: targetId, record: { date: document.getElementById('editVendorDate').value, vendorName: v, paymentMode: document.getElementById('editVendorMode').value, amount: document.getElementById('editVendorAmount').value } });
     }
 
     function deleteRow(id, target) {
