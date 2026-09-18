@@ -766,22 +766,20 @@
           else vColor = 'var(--danger-red)'; 
         }
 
+        const gridCols = receiptDraft.length > 1 ? "1.5fr 1fr 32px" : "1.5fr 1fr";
+
         html += `
         <div class="receipt-vendor-block">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <h4 style="margin: 0; font-size: 11px; color: var(--text-muted);">VENDOR ${vIndex + 1}</h4>
-            ${receiptDraft.length > 1 ? `<button onclick="removeReceiptVendorBlock(${vIndex})" style="background:none; border:none; color:var(--danger-red); cursor:pointer; font-size:18px; padding:0; line-height: 1;">&times;</button>` : ''}
-          </div>
-          
-          <div class="amounts-row" style="grid-template-columns: 1.5fr 1fr; margin-bottom: 6px;">
+          <div class="amounts-row" style="grid-template-columns: ${gridCols}; margin-bottom: 6px;">
             <div class="input-group">
-              <label>Vendor Name</label>
+              <label>Vendor ${vIndex + 1}</label>
               <input type="text" list="vendorDatalist" value="${vendor.vendorName}" oninput="updateReceiptDraft('vendorName', ${vIndex}, null, this)" style="color: ${vColor}; font-weight: 600;" placeholder="Name...">
             </div>
             <div class="input-group">
               <label>Carriage (₹)</label>
               <input type="number" value="${vendor.carriage}" step="any" oninput="updateReceiptDraft('carriage', ${vIndex}, null, this)">
             </div>
+            ${receiptDraft.length > 1 ? `<button onclick="removeReceiptVendorBlock(${vIndex})" style="background:none; border:none; color:var(--danger-red); cursor:pointer; font-size:24px; padding:0; height: 38px;">&times;</button>` : ''}
           </div>
         `;
 
