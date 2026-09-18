@@ -346,6 +346,22 @@
     </div>
   </div>
 
+  <!-- Receipt Fruit Edit Modal -->
+  <div id="receiptFruitEditModalOverlay" class="modal-overlay">
+    <div class="card modal-container">
+      <h3 style="margin-bottom: 14px;" id="receiptEditModalTitle">Edit Fruit Entry</h3>
+      <div class="modal-edit-grid" style="grid-template-columns: 1fr;">
+        <div class="input-group"><label>Fruit Name</label><input type="text" id="editReceiptFruitName" list="fruitDatalist"></div>
+        <div class="input-group"><label>Quantity</label><input type="number" id="editReceiptFruitQty" step="any"></div>
+        <div class="input-group" id="editReceiptCarriageGroup" style="display:none;"><label>Carriage (₹)</label><input type="number" id="editReceiptCarriage" step="any"></div>
+      </div>
+      <div class="modal-action-row">
+        <button class="cancel-btn" onclick="closeReceiptFruitEditModal()">Cancel</button>
+        <button class="save-btn" onclick="submitReceiptFruitEdit()">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
@@ -356,6 +372,7 @@
     let stagedVendorPayments = [];
 
     let receiptDraft = [];
+    let activeReceiptEdit = null; // Stores info for modal edits
 
     try {
       const cData = localStorage.getItem('tft_cache_state');
@@ -621,7 +638,7 @@
       document.getElementById('vendor-month-calc').innerText = now.toLocaleString('en-US', { month: 'long' }) + ': ₹' + formatINR(vendorMonthTotalAmt);
 
 
-      // ---- 3. Receipt Grouped Render ----
+      // ---- 3. Receipt Grouped Render with Edit & Delete Controls ----
       let rHtml = '';
       if (appData.receipt && appData.receipt.length > 0) {
         const groupedReceipts = {};
@@ -632,7 +649,7 @@
           const dateStr = new Date(row.Date).toISOString().split('T')[0];
           
           if (!groupedReceipts[dateStr]) {
-            groupedReceipts[dateStr] = { dateObj: new Date(row.Date), totalCarriage: 0, vendors: [] };
+            groupedReceipts[dateStr] = { dateObj: new Date(row.Date), rawDateStr: row.Date, totalCarriage: 0, vendors: [] };
             dateOrder.push(dateStr);
           }
           
@@ -648,6 +665,7 @@
           groupedReceipts[dateStr].totalCarriage += carriage;
 
           vObj.fruits.push({
+            rowId: row['Row ID'],
             name: row['Fruit Name'] || '-',
             qty: row['Quantity'] || ''
           });
@@ -660,15 +678,23 @@
           const displayDate = gDate.dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
           
           rHtml += `<div style="border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 12px;">`;
-          rHtml += `<div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
-                      <span style="font-weight:700; font-size:14px;">${displayDate}</span>
-                      <span style="font-weight:700; color:var(--primary-blue); font-size:14px;">Total: ₹${formatINR(gDate.totalCarriage)}</span>
+          
+          // Date Header with Date-level Edit & Delete
+          rHtml += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                      <div>
+                        <span style="font-weight:700; font-size:14px; margin-right: 8px;">${displayDate}</span>
+                        <span style="font-weight:700; color:var(--primary-blue); font-size:13px;">Total: ₹${formatINR(gDate.totalCarriage)}</span>
+                      </div>
+                      <div style="display: flex; gap: 4px;">
+                        <button class="action-btn edit-btn" style="padding: 3px 6px;" onclick="editReceiptDatePrompt('${dateStr}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                        <button class="action-btn del-btn" style="padding: 3px 6px;" onclick="deleteReceiptByDate('${dateStr}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                      </div>
                     </div>`;
           
           rHtml += `<div class="table-wrapper"><table class="compact-table">
                       <thead>
                         <tr>
-                          <th>S NO</th><th>VENDOR</th><th>FRUIT</th><th>QTY</th><th>CARRIAGE</th>
+                          <th>S NO</th><th>VENDOR</th><th>FRUIT</th><th>QTY</th><th>CARRIAGE</th><th>ACTIONS</th>
                         </tr>
                       </thead>
                       <tbody>`;
@@ -682,13 +708,25 @@
                           <td style="font-weight:600;">${vData.name}</td>
                           <td>${f.name}</td>
                           <td>${f.qty}</td>
-                          <td style="color:var(--danger-red);">${vData.carriage ? vData.carriage : ''}</td>`;
+                          <td style="color:var(--danger-red);">${vData.carriage ? vData.carriage : ''}</td>
+                          <td>
+                            <div style="display:flex; gap:3px; justify-content:flex-end;">
+                              <button class="action-btn edit-btn" style="padding:2px 4px;" onclick="editReceiptVendorPrompt('${dateStr}', '${vData.name}', ${vData.carriage})"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                              <button class="action-btn del-btn" style="padding:2px 4px;" onclick="deleteReceiptByVendor('${dateStr}', '${vData.name}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                            </div>
+                          </td>`;
               } else {
                 rHtml += `<td></td>
                           <td></td>
                           <td>${f.name}</td>
                           <td>${f.qty}</td>
-                          <td></td>`;
+                          <td></td>
+                          <td>
+                            <div style="display:flex; gap:3px; justify-content:flex-end;">
+                              <button class="action-btn edit-btn" style="padding:2px 4px;" onclick="editReceiptFruitPrompt('${f.rowId}', '${f.name}', ${f.qty})"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                              <button class="action-btn del-btn" style="padding:2px 4px;" onclick="deleteReceiptRow('${f.rowId}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                            </div>
+                          </td>`;
               }
               rHtml += `</tr>`;
             });
@@ -707,7 +745,7 @@
 
 
     /* ========================================================
-       RECEIPTS DYNAMIC BUILDER LOGIC
+       RECEIPTS DYNAMIC BUILDER & EDIT LOGIC
        ======================================================== */
 
     function addReceiptVendorBlock() {
@@ -848,6 +886,99 @@
       receiptDraft = [{ vendorName: '', carriage: 0, fruits: [{ name: '', qty: '' }] }];
       renderReceiptDraft();
       document.getElementById('saveReceiptsBtn').innerText = 'Save All';
+    }
+
+    // --- RECEIPT EDIT & DELETE HANDLERS ---
+    function deleteReceiptRow(rowId) {
+      if (confirm("Delete this fruit entry?")) {
+        apiCall('delete', { target: 'receipt', deleteType: 'row', id: rowId });
+      }
+    }
+
+    function deleteReceiptByVendor(dateStr, vendorName) {
+      if (confirm(`Delete all entries for ${vendorName} on this date?`)) {
+        apiCall('delete', { target: 'receipt', deleteType: 'vendor', date: dateStr, vendorName: vendorName });
+      }
+    }
+
+    function deleteReceiptByDate(dateStr) {
+      if (confirm("Delete all receipts for this entire date?")) {
+        apiCall('delete', { target: 'receipt', deleteType: 'date', date: dateStr });
+      }
+    }
+
+    function editReceiptFruitPrompt(rowId, currentName, currentQty) {
+      activeReceiptEdit = { type: 'row', id: rowId };
+      document.getElementById('receiptEditModalTitle').innerText = 'Edit Fruit Entry';
+      document.getElementById('editReceiptFruitName').value = currentName;
+      document.getElementById('editReceiptFruitQty').value = currentQty;
+      document.getElementById('editReceiptCarriageGroup').style.display = 'none';
+      document.getElementById('receiptFruitEditModalOverlay').style.display = 'flex';
+    }
+
+    function editReceiptVendorPrompt(dateStr, vendorName, currentCarriage) {
+      activeReceiptEdit = { type: 'vendor', date: dateStr, vendorName: vendorName };
+      document.getElementById('receiptEditModalTitle').innerText = `Edit Vendor: ${vendorName}`;
+      document.getElementById('editReceiptFruitName').value = vendorName;
+      document.getElementById('editReceiptFruitName').parentNode.querySelector('label').innerText = 'Vendor Name';
+      document.getElementById('editReceiptFruitQty').parentNode.style.display = 'none';
+      document.getElementById('editReceiptCarriage').value = currentCarriage;
+      document.getElementById('editReceiptCarriageGroup').style.display = 'flex';
+      document.getElementById('receiptFruitEditModalOverlay').style.display = 'flex';
+    }
+
+    function editReceiptDatePrompt(dateStr) {
+      activeReceiptEdit = { type: 'date', date: dateStr };
+      document.getElementById('receiptEditModalTitle').innerText = 'Edit Date';
+      document.getElementById('editReceiptFruitName').value = dateStr;
+      document.getElementById('editReceiptFruitName').parentNode.querySelector('label').innerText = 'New Date';
+      document.getElementById('editReceiptFruitName').type = 'date';
+      document.getElementById('editReceiptFruitQty').parentNode.style.display = 'none';
+      document.getElementById('editReceiptCarriageGroup').style.display = 'none';
+      document.getElementById('receiptFruitEditModalOverlay').style.display = 'flex';
+    }
+
+    function closeReceiptFruitEditModal() {
+      document.getElementById('receiptFruitEditModalOverlay').style.display = 'none';
+      // Reset modal inputs to default state
+      document.getElementById('editReceiptFruitName').type = 'text';
+      document.getElementById('editReceiptFruitQty').parentNode.style.display = 'flex';
+      activeReceiptEdit = null;
+    }
+
+    async function submitReceiptFruitEdit() {
+      if (!activeReceiptEdit) return;
+      const editInfo = activeReceiptEdit;
+      closeReceiptFruitEditModal();
+
+      if (editInfo.type === 'row') {
+        const newName = document.getElementById('editReceiptFruitName').value.trim();
+        const newQty = document.getElementById('editReceiptFruitQty').value;
+        await apiCall('update', { target: 'receipt', id: editInfo.id, record: { fruitName: newName, quantity: newQty } });
+      } else if (editInfo.type === 'vendor') {
+        const newVendorName = document.getElementById('editReceiptFruitName').value.trim();
+        const newCarriage = document.getElementById('editReceiptCarriage').value;
+        // Find all rows for this vendor & date and update them
+        const matchingRows = appData.receipt.filter(r => new Date(r.Date).toISOString().split('T')[0] === editInfo.date && r['Vendor Name'] === editInfo.vendorName);
+        if (matchingRows.length > 0) {
+          // Update first row carriage and vendor name, others vendor name only
+          for (let idx = 0; idx < matchingRows.length; idx++) {
+            let r = matchingRows[idx];
+            let recPayload = { vendorName: newVendorName };
+            if (idx === 0) recPayload.carriageAmount = newCarriage;
+            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'update', target: 'receipt', id: r['Row ID'], user: currentUserEmail, record: recPayload }) });
+          }
+          apiCall('get'); // Refresh state
+        }
+      } else if (editInfo.type === 'date') {
+        const newDate = document.getElementById('editReceiptFruitName').value;
+        if (!newDate) return;
+        const matchingRows = appData.receipt.filter(r => new Date(r.Date).toISOString().split('T')[0] === editInfo.date);
+        for (let r of matchingRows) {
+          await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'update', target: 'receipt', id: r['Row ID'], user: currentUserEmail, record: { date: newDate } }) });
+        }
+        apiCall('get');
+      }
     }
 
 
