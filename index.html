@@ -170,7 +170,7 @@
             <div class="input-group"><label title="Cash Counted (₹)">Cash Counted</label><input type="number" id="cashCounted" value="0" step="any"></div>
             <div class="input-group"><label>UPI (₹)</label><input type="number" id="upi" value="0" step="any"></div>
             <div class="input-group"><label>Credit (₹)</label><input type="number" id="credit" value="0" step="any"></div>
-            <div class="input-group"><label>Cheque (₹)</label><input type="number" id="cheque" value="0" step="any"></div>
+            <div class="input-group"><label>Cheque (₹)</label><input type="number" id="editCheque" step="any"></div>
             <div class="input-group"><label>Others (₹)</label><input type="number" id="others" value="0" step="any"></div>
             <button class="add-btn" id="saveBtn" onclick="saveEntry('sale')">+</button>
           </div>
@@ -372,6 +372,14 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
+    // Helper to safely extract local YYYY-MM-DD to avoid timezone shifting
+    function toYMD(dateVal) {
+      if (!dateVal) return null;
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return null;
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+
     let appData = { sale: [], payment: [], receipt: [], uniqueVendors: [], vendorChartData: {} };
     let chartData = {}; 
     let dashboardOpen = false;
@@ -539,7 +547,7 @@
         if (action === 'loadMore') {
           if (data.target === 'sale') { appData.sale = [...appData.sale, ...(result.saleRows||[])]; offsets.sale += 10; hasMore.sale = result.saleHasMore; }
           else if (data.target === 'payment') { appData.payment = [...appData.payment, ...(result.paymentRows||[])]; offsets.payment += 10; hasMore.payment = result.paymentHasMore; }
-          else if (data.target === 'receipt') { appData.receipt = [...(appData.receipt||[]), ...(result.receiptRows||[])]; offsets.receipt += 10; hasMore.receipt = result.receiptHasMore; }
+          else if (data.target === 'receipt') { appData.receipt = [...(appData.receipt||[]), ...(result.receiptRows||[])]; offsets.receipt += 5; hasMore.receipt = result.receiptHasMore; }
         } else {
           if (result.saleRows) { appData.sale = result.saleRows; offsets.sale = 0; hasMore.sale = result.saleHasMore; }
           if (result.paymentRows) { appData.payment = result.paymentRows; offsets.payment = 0; hasMore.payment = result.paymentHasMore; }
@@ -653,7 +661,7 @@
 
         appData.receipt.forEach(row => {
           if (!row.Date) return;
-          const dateStr = new Date(row.Date).toISOString().split('T')[0];
+          const dateStr = toYMD(row.Date);
           
           if (!groupedReceipts[dateStr]) {
             groupedReceipts[dateStr] = { dateObj: new Date(row.Date), rawDateStr: row.Date, totalCarriage: 0, vendors: [], fruitTotals: {} };
@@ -770,7 +778,7 @@
       }
 
       document.getElementById('receipt-list-body').innerHTML = rHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No receipts yet</div>';
-      if (hasMore.receipt) document.getElementById('receipt-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'receipt', offset: offsets.receipt+10})">Load Older Receipts</button>`;
+      if (hasMore.receipt) document.getElementById('receipt-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'receipt', offset: offsets.receipt+5})">Load Older Receipts</button>`;
 
       if (dashboardOpen) renderChart();
     }
@@ -989,7 +997,7 @@
       } else if (editInfo.type === 'vendor') {
         const newVendorName = document.getElementById('editReceiptFruitName').value.trim();
         const newCarriage = document.getElementById('editReceiptCarriage').value;
-        const matchingRows = appData.receipt.filter(r => new Date(r.Date).toISOString().split('T')[0] === editInfo.date && r['Vendor Name'] === editInfo.vendorName);
+        const matchingRows = appData.receipt.filter(r => toYMD(r.Date) === editInfo.date && r['Vendor Name'] === editInfo.vendorName);
         if (matchingRows.length > 0) {
           for (let idx = 0; idx < matchingRows.length; idx++) {
             let r = matchingRows[idx];
@@ -1002,7 +1010,7 @@
       } else if (editInfo.type === 'date') {
         const newDate = document.getElementById('editReceiptFruitName').value;
         if (!newDate) return;
-        const matchingRows = appData.receipt.filter(r => new Date(r.Date).toISOString().split('T')[0] === editInfo.date);
+        const matchingRows = appData.receipt.filter(r => toYMD(r.Date) === editInfo.date);
         for (let r of matchingRows) {
           await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'update', target: 'receipt', id: r['Row ID'], user: currentUserEmail, record: { date: newDate } }) });
         }
