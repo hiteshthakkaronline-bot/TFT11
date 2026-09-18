@@ -103,6 +103,13 @@
     .compact-table tr:last-child td { border-bottom: none; }
     [data-theme="dark"] .compact-table th { background: #0f172a; }
 
+    /* Compact Fruit Summary Table */
+    .compact-summary-table { border-collapse: collapse; font-size: 10px; text-align: center; margin-bottom: 10px; white-space: nowrap; }
+    .compact-summary-table th, .compact-summary-table td { padding: 3px 6px; border: 1px solid var(--border-color); }
+    .compact-summary-table th { background: #f8fafc; color: var(--text-main); font-weight: 700; }
+    .compact-summary-table td { font-weight: 600; color: var(--primary-blue); }
+    [data-theme="dark"] .compact-summary-table th { background: #0f172a; }
+
     body.privacy-mode .amt-val, body.privacy-mode td { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode input[type="number"], body.privacy-mode select { filter: blur(6px); opacity: 0.6; pointer-events: none; }
     body.privacy-mode #month-calc, body.privacy-mode #vendor-month-calc, body.privacy-mode #dashMonthTotal, body.privacy-mode #receiptTotalCarriage { filter: blur(6px); opacity: 0.6; }
@@ -351,8 +358,8 @@
     <div class="card modal-container">
       <h3 style="margin-bottom: 14px;" id="receiptEditModalTitle">Edit Fruit Entry</h3>
       <div class="modal-edit-grid" style="grid-template-columns: 1fr;">
-        <div class="input-group"><label>Fruit Name</label><input type="text" id="editReceiptFruitName" list="fruitDatalist"></div>
-        <div class="input-group"><label>Quantity</label><input type="number" id="editReceiptFruitQty" step="any"></div>
+        <div class="input-group"><label>Fruit</label><input type="text" id="editReceiptFruitName" list="fruitDatalist"></div>
+        <div class="input-group"><label>Qty</label><input type="number" id="editReceiptFruitQty" step="any"></div>
         <div class="input-group" id="editReceiptCarriageGroup" style="display:none;"><label>Carriage (₹)</label><input type="number" id="editReceiptCarriage" step="any"></div>
       </div>
       <div class="modal-action-row">
@@ -372,7 +379,7 @@
     let stagedVendorPayments = [];
 
     let receiptDraft = [];
-    let activeReceiptEdit = null; // Stores info for modal edits
+    let activeReceiptEdit = null;
 
     try {
       const cData = localStorage.getItem('tft_cache_state');
@@ -649,7 +656,7 @@
           const dateStr = new Date(row.Date).toISOString().split('T')[0];
           
           if (!groupedReceipts[dateStr]) {
-            groupedReceipts[dateStr] = { dateObj: new Date(row.Date), rawDateStr: row.Date, totalCarriage: 0, vendors: [] };
+            groupedReceipts[dateStr] = { dateObj: new Date(row.Date), rawDateStr: row.Date, totalCarriage: 0, vendors: [], fruitTotals: {} };
             dateOrder.push(dateStr);
           }
           
@@ -664,11 +671,19 @@
           vObj.carriage += carriage;
           groupedReceipts[dateStr].totalCarriage += carriage;
 
+          const fName = row['Fruit Name'] || '-';
+          const fQty = Number(row['Quantity']) || 0;
+
           vObj.fruits.push({
             rowId: row['Row ID'],
-            name: row['Fruit Name'] || '-',
+            name: fName,
             qty: row['Quantity'] || ''
           });
+
+          // Aggregate fruit totals for the compact daily summary
+          if (fName !== '-' && fQty > 0) {
+            groupedReceipts[dateStr].fruitTotals[fName] = (groupedReceipts[dateStr].fruitTotals[fName] || 0) + fQty;
+          }
         });
 
         dateOrder.sort((a,b) => new Date(b) - new Date(a));
@@ -680,7 +695,7 @@
           rHtml += `<div style="border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 12px;">`;
           
           // Date Header with Date-level Edit & Delete
-          rHtml += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+          rHtml += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                       <div>
                         <span style="font-weight:700; font-size:14px; margin-right: 8px;">${displayDate}</span>
                         <span style="font-weight:700; color:var(--primary-blue); font-size:13px;">Total: ₹${formatINR(gDate.totalCarriage)}</span>
@@ -690,6 +705,23 @@
                         <button class="action-btn del-btn" style="padding: 3px 6px;" onclick="deleteReceiptByDate('${dateStr}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
                       </div>
                     </div>`;
+
+          // Compact Fruit Summary Table
+          const fTotalsKeys = Object.keys(gDate.fruitTotals);
+          if (fTotalsKeys.length > 0) {
+            let thHtml = '';
+            let tdHtml = '';
+            fTotalsKeys.forEach(fKey => {
+              thHtml += `<th>${fKey}</th>`;
+              tdHtml += `<td>${gDate.fruitTotals[fKey]}</td>`;
+            });
+            rHtml += `<div style="overflow-x: auto; margin-bottom: 12px; border-radius: 4px;">
+                        <table class="compact-summary-table" style="margin: 0;">
+                          <thead><tr>${thHtml}</tr></thead>
+                          <tbody><tr>${tdHtml}</tr></tbody>
+                        </table>
+                      </div>`;
+          }
           
           rHtml += `<div class="table-wrapper"><table class="compact-table">
                       <thead>
@@ -940,7 +972,6 @@
 
     function closeReceiptFruitEditModal() {
       document.getElementById('receiptFruitEditModalOverlay').style.display = 'none';
-      // Reset modal inputs to default state
       document.getElementById('editReceiptFruitName').type = 'text';
       document.getElementById('editReceiptFruitQty').parentNode.style.display = 'flex';
       activeReceiptEdit = null;
@@ -958,17 +989,15 @@
       } else if (editInfo.type === 'vendor') {
         const newVendorName = document.getElementById('editReceiptFruitName').value.trim();
         const newCarriage = document.getElementById('editReceiptCarriage').value;
-        // Find all rows for this vendor & date and update them
         const matchingRows = appData.receipt.filter(r => new Date(r.Date).toISOString().split('T')[0] === editInfo.date && r['Vendor Name'] === editInfo.vendorName);
         if (matchingRows.length > 0) {
-          // Update first row carriage and vendor name, others vendor name only
           for (let idx = 0; idx < matchingRows.length; idx++) {
             let r = matchingRows[idx];
             let recPayload = { vendorName: newVendorName };
             if (idx === 0) recPayload.carriageAmount = newCarriage;
             await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'update', target: 'receipt', id: r['Row ID'], user: currentUserEmail, record: recPayload }) });
           }
-          apiCall('get'); // Refresh state
+          apiCall('get'); 
         }
       } else if (editInfo.type === 'date') {
         const newDate = document.getElementById('editReceiptFruitName').value;
