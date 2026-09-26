@@ -722,9 +722,12 @@
             let fruitTotalSum = 0;
             
             fTotalsKeys.forEach(fKey => {
-              thHtml += `<th>${fKey}</th>`;
-              tdHtml += `<td>${gDate.fruitTotals[fKey]}</td>`;
-              if (fKey.trim().toLowerCase() !== 'daab') {
+              if (fKey.trim().toLowerCase() === 'daab') {
+                thHtml += `<th style="color: #10b981;">${fKey}</th>`;
+                tdHtml += `<td style="color: #10b981;">${gDate.fruitTotals[fKey]}</td>`;
+              } else {
+                thHtml += `<th>${fKey}</th>`;
+                tdHtml += `<td>${gDate.fruitTotals[fKey]}</td>`;
                 fruitTotalSum += gDate.fruitTotals[fKey];
               }
             });
