@@ -353,18 +353,20 @@
     </div>
   </div>
 
-  <!-- Receipt Fruit Edit Modal -->
-  <div id="receiptFruitEditModalOverlay" class="modal-overlay">
+  <!-- Universal Receipt/Bill Edit Modal -->
+  <div id="receiptEditModalOverlay" class="modal-overlay">
     <div class="card modal-container">
-      <h3 style="margin-bottom: 14px;" id="receiptEditModalTitle">Edit Fruit Entry</h3>
-      <div class="modal-edit-grid" style="grid-template-columns: 1fr;">
-        <div class="input-group"><label>Fruit</label><input type="text" id="editReceiptFruitName" list="fruitDatalist"></div>
-        <div class="input-group"><label>Qty</label><input type="number" id="editReceiptFruitQty" step="any"></div>
-        <div class="input-group" id="editReceiptCarriageGroup" style="display:none;"><label>Carriage (₹)</label><input type="number" id="editReceiptCarriage" step="any"></div>
+      <h3 style="margin-bottom: 14px;" id="receiptEditModalTitle">Edit Entry</h3>
+      <div class="modal-edit-grid" id="receiptEditGrid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="input-group" id="editReceiptDateGroup" style="display:none; grid-column: 1 / -1;"><label>New Date</label><input type="date" id="editReceiptDateInput"></div>
+        <div class="input-group" id="editReceiptVendorGroup"><label>Vendor</label><input type="text" id="editReceiptVendorName" list="vendorDatalist" autocomplete="off"></div>
+        <div class="input-group" id="editReceiptCarriageGroup"><label>Carriage (₹)</label><input type="number" id="editReceiptCarriage" step="any"></div>
+        <div class="input-group" id="editReceiptFruitGroup"><label>Fruit</label><input type="text" id="editReceiptFruitName" list="fruitDatalist" autocomplete="off"></div>
+        <div class="input-group" id="editReceiptQtyGroup"><label>Qty</label><input type="number" id="editReceiptFruitQty" step="any"></div>
       </div>
       <div class="modal-action-row">
-        <button class="cancel-btn" onclick="closeReceiptFruitEditModal()">Cancel</button>
-        <button class="save-btn" onclick="submitReceiptFruitEdit()">Save</button>
+        <button class="cancel-btn" onclick="closeReceiptEditModal()">Cancel</button>
+        <button class="save-btn" onclick="submitReceiptEdit()">Save</button>
       </div>
     </div>
   </div>
@@ -756,6 +758,7 @@
             vData.fruits.forEach((f, idx) => {
               rHtml += `<tr>`;
               if (idx === 0) {
+                // First Row Edit updates all fields
                 rHtml += `<td>${sNo}</td>
                           <td style="font-weight:600;">${vData.name}</td>
                           <td>${f.name}</td>
@@ -763,11 +766,12 @@
                           <td style="color:var(--danger-red);">${vData.carriage ? vData.carriage : ''}</td>
                           <td>
                             <div style="display:flex; gap:3px; justify-content:flex-end;">
-                              <button class="action-btn edit-btn" style="padding:2px 4px;" onclick="editReceiptVendorPrompt('${dateStr}', '${vData.name}', ${vData.carriage})"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                              <button class="action-btn edit-btn" style="padding:2px 4px;" onclick="editReceiptFirstRowPrompt('${f.rowId}', '${dateStr}', '${vData.name}', ${vData.carriage}, '${f.name}', '${f.qty}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
                               <button class="action-btn del-btn" style="padding:2px 4px;" onclick="deleteReceiptByVendor('${dateStr}', '${vData.name}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
                             </div>
                           </td>`;
               } else {
+                // Subsequent Row Edit updates only fruit/qty
                 rHtml += `<td></td>
                           <td></td>
                           <td>${f.name}</td>
@@ -775,7 +779,7 @@
                           <td></td>
                           <td>
                             <div style="display:flex; gap:3px; justify-content:flex-end;">
-                              <button class="action-btn edit-btn" style="padding:2px 4px;" onclick="editReceiptFruitPrompt('${f.rowId}', '${f.name}', ${f.qty})"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                              <button class="action-btn edit-btn" style="padding:2px 4px;" onclick="editReceiptFruitPrompt('${f.rowId}', '${f.name}', '${f.qty}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
                               <button class="action-btn del-btn" style="padding:2px 4px;" onclick="deleteReceiptRow('${f.rowId}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
                             </div>
                           </td>`;
@@ -959,68 +963,87 @@
       }
     }
 
-    function editReceiptFruitPrompt(rowId, currentName, currentQty) {
-      activeReceiptEdit = { type: 'row', id: rowId };
-      document.getElementById('receiptEditModalTitle').innerText = 'Edit Fruit Entry';
-      document.getElementById('editReceiptFruitName').value = currentName;
+    function editReceiptFirstRowPrompt(rowId, dateStr, vendorName, currentCarriage, fruitName, currentQty) {
+      activeReceiptEdit = { type: 'first_row', id: rowId, date: dateStr, oldVendor: vendorName };
+      document.getElementById('receiptEditModalTitle').innerText = 'Edit Entry';
+      document.getElementById('editReceiptDateGroup').style.display = 'none';
+      
+      document.getElementById('editReceiptVendorGroup').style.display = 'flex';
+      document.getElementById('editReceiptCarriageGroup').style.display = 'flex';
+      document.getElementById('editReceiptFruitGroup').style.display = 'flex';
+      document.getElementById('editReceiptQtyGroup').style.display = 'flex';
+      
+      document.getElementById('editReceiptVendorName').value = vendorName;
+      document.getElementById('editReceiptCarriage').value = currentCarriage;
+      document.getElementById('editReceiptFruitName').value = fruitName;
       document.getElementById('editReceiptFruitQty').value = currentQty;
-      document.getElementById('editReceiptCarriageGroup').style.display = 'none';
-      document.getElementById('receiptFruitEditModalOverlay').style.display = 'flex';
+      
+      document.getElementById('receiptEditModalOverlay').style.display = 'flex';
     }
 
-    function editReceiptVendorPrompt(dateStr, vendorName, currentCarriage) {
-      activeReceiptEdit = { type: 'vendor', date: dateStr, vendorName: vendorName };
-      document.getElementById('receiptEditModalTitle').innerText = `Edit Vendor: ${vendorName}`;
-      document.getElementById('editReceiptFruitName').value = vendorName;
-      document.getElementById('editReceiptFruitName').parentNode.querySelector('label').innerText = 'Vendor Name';
-      document.getElementById('editReceiptFruitQty').parentNode.style.display = 'none';
-      document.getElementById('editReceiptCarriage').value = currentCarriage;
-      document.getElementById('editReceiptCarriageGroup').style.display = 'flex';
-      document.getElementById('receiptFruitEditModalOverlay').style.display = 'flex';
+    function editReceiptFruitPrompt(rowId, currentName, currentQty) {
+      activeReceiptEdit = { type: 'subsequent_row', id: rowId };
+      document.getElementById('receiptEditModalTitle').innerText = 'Edit Fruit Entry';
+      document.getElementById('editReceiptDateGroup').style.display = 'none';
+      
+      document.getElementById('editReceiptVendorGroup').style.display = 'none';
+      document.getElementById('editReceiptCarriageGroup').style.display = 'none';
+      document.getElementById('editReceiptFruitGroup').style.display = 'flex';
+      document.getElementById('editReceiptQtyGroup').style.display = 'flex';
+      
+      document.getElementById('editReceiptFruitName').value = currentName;
+      document.getElementById('editReceiptFruitQty').value = currentQty;
+      
+      document.getElementById('receiptEditModalOverlay').style.display = 'flex';
     }
 
     function editReceiptDatePrompt(dateStr) {
       activeReceiptEdit = { type: 'date', date: dateStr };
       document.getElementById('receiptEditModalTitle').innerText = 'Edit Date';
-      document.getElementById('editReceiptFruitName').value = dateStr;
-      document.getElementById('editReceiptFruitName').parentNode.querySelector('label').innerText = 'New Date';
-      document.getElementById('editReceiptFruitName').type = 'date';
-      document.getElementById('editReceiptFruitQty').parentNode.style.display = 'none';
+      
+      document.getElementById('editReceiptDateGroup').style.display = 'flex';
+      document.getElementById('editReceiptDateInput').value = dateStr;
+      
+      document.getElementById('editReceiptVendorGroup').style.display = 'none';
       document.getElementById('editReceiptCarriageGroup').style.display = 'none';
-      document.getElementById('receiptFruitEditModalOverlay').style.display = 'flex';
+      document.getElementById('editReceiptFruitGroup').style.display = 'none';
+      document.getElementById('editReceiptQtyGroup').style.display = 'none';
+      
+      document.getElementById('receiptEditModalOverlay').style.display = 'flex';
     }
 
-    function closeReceiptFruitEditModal() {
-      document.getElementById('receiptFruitEditModalOverlay').style.display = 'none';
-      document.getElementById('editReceiptFruitName').type = 'text';
-      document.getElementById('editReceiptFruitQty').parentNode.style.display = 'flex';
+    function closeReceiptEditModal() {
+      document.getElementById('receiptEditModalOverlay').style.display = 'none';
       activeReceiptEdit = null;
     }
 
-    async function submitReceiptFruitEdit() {
+    async function submitReceiptEdit() {
       if (!activeReceiptEdit) return;
       const editInfo = activeReceiptEdit;
-      closeReceiptFruitEditModal();
+      closeReceiptEditModal();
+      document.getElementById('receipt-list-body').innerHTML = '<div style="text-align: center; padding: 20px;">Updating...</div>';
 
-      if (editInfo.type === 'row') {
-        const newName = document.getElementById('editReceiptFruitName').value.trim();
-        const newQty = document.getElementById('editReceiptFruitQty').value;
-        await apiCall('update', { target: 'receipt', id: editInfo.id, record: { fruitName: newName, quantity: newQty } });
-      } else if (editInfo.type === 'vendor') {
-        const newVendorName = document.getElementById('editReceiptFruitName').value.trim();
+      if (editInfo.type === 'first_row') {
+        const newVendor = document.getElementById('editReceiptVendorName').value.trim();
         const newCarriage = document.getElementById('editReceiptCarriage').value;
-        const matchingRows = appData.receipt.filter(r => toYMD(r.Date) === editInfo.date && r['Vendor Name'] === editInfo.vendorName);
-        if (matchingRows.length > 0) {
-          for (let idx = 0; idx < matchingRows.length; idx++) {
-            let r = matchingRows[idx];
-            let recPayload = { vendorName: newVendorName };
-            if (idx === 0) recPayload.carriageAmount = newCarriage;
-            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'update', target: 'receipt', id: r['Row ID'], user: currentUserEmail, record: recPayload }) });
+        const newFruit = document.getElementById('editReceiptFruitName').value.trim();
+        const newQty = document.getElementById('editReceiptFruitQty').value;
+        
+        await apiCall('update', { target: 'receipt', id: editInfo.id, record: { vendorName: newVendor, carriageAmount: newCarriage, fruitName: newFruit, quantity: newQty } });
+        
+        if (newVendor !== editInfo.oldVendor && newVendor !== '') {
+          const matchingRows = appData.receipt.filter(r => toYMD(r.Date) === editInfo.date && r['Vendor Name'] === editInfo.oldVendor && r['Row ID'] !== editInfo.id);
+          for (let r of matchingRows) {
+            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'update', target: 'receipt', id: r['Row ID'], user: currentUserEmail, record: { vendorName: newVendor } }) });
           }
           apiCall('get'); 
         }
+      } else if (editInfo.type === 'subsequent_row') {
+        const newFruit = document.getElementById('editReceiptFruitName').value.trim();
+        const newQty = document.getElementById('editReceiptFruitQty').value;
+        await apiCall('update', { target: 'receipt', id: editInfo.id, record: { fruitName: newFruit, quantity: newQty } });
       } else if (editInfo.type === 'date') {
-        const newDate = document.getElementById('editReceiptFruitName').value;
+        const newDate = document.getElementById('editReceiptDateInput').value;
         if (!newDate) return;
         const matchingRows = appData.receipt.filter(r => toYMD(r.Date) === editInfo.date);
         for (let r of matchingRows) {
