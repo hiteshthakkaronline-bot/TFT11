@@ -170,7 +170,7 @@
             <div class="input-group"><label title="Cash Counted (₹)">Cash Counted</label><input type="number" id="cashCounted" value="0" step="any"></div>
             <div class="input-group"><label>UPI (₹)</label><input type="number" id="upi" value="0" step="any"></div>
             <div class="input-group"><label>Credit (₹)</label><input type="number" id="credit" value="0" step="any"></div>
-            <div class="input-group"><label>Cheque (₹)</label><input type="number" id="cheque" step="any"></div>
+            <div class="input-group"><label>Cheque (₹)</label><input type="number" id="cheque" value="0" step="any"></div>
             <div class="input-group"><label>Others (₹)</label><input type="number" id="others" value="0" step="any"></div>
             <button class="add-btn" id="saveBtn" onclick="saveEntry('sale')">+</button>
           </div>
@@ -238,11 +238,11 @@
       </div>
     </div>
 
-    <!-- TAB 3: VENDOR RECEIPTS -->
+    <!-- TAB 3: VENDOR RECEIPTS (BILLS) -->
     <div id="receipt-section" style="display: none;">
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-          <h3 style="margin: 0;">Log Receipt</h3>
+          <h3 style="margin: 0;">Log Bill</h3>
           <span style="font-size: 14px; font-weight: 700; color: var(--primary-blue);">Total: ₹<span id="receiptTotalCarriage">0</span></span>
         </div>
         
@@ -268,7 +268,7 @@
 
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0;">Recent Receipts</h3>
+          <h3 style="margin: 0;">Recent Bills</h3>
         </div>
         <div class="list-container" id="receipt-list-body">
           <div style="text-align: center; padding: 20px; color: var(--text-muted);">Loading data...</div>
@@ -304,7 +304,7 @@
     </div>
     <div class="nav-item" id="nav-receipt" onclick="switchTab('receipt')">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8"></path><polyline points="1 3 23 3 23 8 1 8 1 3"></polyline><path d="M10 12h4"></path></svg>
-      Receipts
+      Bills
     </div>
   </nav>
 
@@ -719,10 +719,19 @@
           if (fTotalsKeys.length > 0) {
             let thHtml = '';
             let tdHtml = '';
+            let fruitTotalSum = 0;
+            
             fTotalsKeys.forEach(fKey => {
               thHtml += `<th>${fKey}</th>`;
               tdHtml += `<td>${gDate.fruitTotals[fKey]}</td>`;
+              if (fKey.trim().toLowerCase() !== 'daab') {
+                fruitTotalSum += gDate.fruitTotals[fKey];
+              }
             });
+            
+            thHtml += `<th style="color: var(--danger-red);">Total</th>`;
+            tdHtml += `<td style="color: var(--danger-red); font-weight: 800;">${fruitTotalSum}</td>`;
+
             rHtml += `<div style="overflow-x: auto; margin-bottom: 12px; border-radius: 4px;">
                         <table class="compact-summary-table" style="margin: 0;">
                           <thead><tr>${thHtml}</tr></thead>
@@ -777,8 +786,8 @@
         });
       }
 
-      document.getElementById('receipt-list-body').innerHTML = rHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No receipts yet</div>';
-      if (hasMore.receipt) document.getElementById('receipt-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'receipt', offset: offsets.receipt+5})">Load Older Receipts</button>`;
+      document.getElementById('receipt-list-body').innerHTML = rHtml || '<div style="text-align:center; padding:20px; color:var(--text-muted);">No bills yet</div>';
+      if (hasMore.receipt) document.getElementById('receipt-list-body').innerHTML += `<button class="load-more-btn" onclick="apiCall('loadMore', {target:'receipt', offset: offsets.receipt+5})">Load Older Bills</button>`;
 
       if (dashboardOpen) renderChart();
     }
@@ -942,7 +951,7 @@
     }
 
     function deleteReceiptByDate(dateStr) {
-      if (confirm("Delete all receipts for this entire date?")) {
+      if (confirm("Delete all bills for this entire date?")) {
         apiCall('delete', { target: 'receipt', deleteType: 'date', date: dateStr });
       }
     }
