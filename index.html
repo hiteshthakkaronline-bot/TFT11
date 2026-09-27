@@ -89,7 +89,7 @@
     .cancel-btn { background: var(--border-color); color: var(--text-main); border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
     .save-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
 
-    /* Receipt Build UI */
+    /* Receipt Build UI - Compacted */
     .receipt-vendor-block { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: var(--card-bg); }
     .receipt-fruit-row { display: grid; grid-template-columns: 1fr 2fr 38px 38px; gap: 6px; align-items: end; margin-top: 6px; }
 
@@ -132,6 +132,7 @@
 </head>
 <body class="privacy-mode">
 
+  <datalist id="fruitDatalist"></datalist>
   <datalist id="vendorDatalist"></datalist>
 
   <div id="login-screen">
@@ -368,7 +369,7 @@
         <!-- Modal Fruit Input with dynamic pill recommendations -->
         <div class="input-group" id="editReceiptFruitGroup" style="grid-column: 1 / -1;">
           <label>Fruit</label>
-          <input type="text" id="editReceiptFruitName" autocomplete="off" oninput="checkModalFruitRecs(this)">
+          <input type="text" id="editReceiptFruitName" list="fruitDatalist" autocomplete="off" oninput="checkModalFruitRecs(this)">
           <div id="editFruitRecsContainer" class="recs-container" style="display:none;"></div>
         </div>
         
@@ -384,6 +385,7 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
+    // Helper to safely extract local YYYY-MM-DD to avoid timezone shifting
     function toYMD(dateVal) {
       if (!dateVal) return null;
       const d = new Date(dateVal);
@@ -564,7 +566,10 @@
           if (result.paymentRows) { appData.payment = result.paymentRows; offsets.payment = 0; hasMore.payment = result.paymentHasMore; }
           if (result.receiptRows) { appData.receipt = result.receiptRows; offsets.receipt = 0; hasMore.receipt = result.receiptHasMore; }
           if (result.uniqueVendors) appData.uniqueVendors = result.uniqueVendors;
+          
+          // ADDED BACK: Assign uniqueFruits from backend to app state
           if (result.uniqueFruits) appData.uniqueFruits = result.uniqueFruits;
+          
           if (result.vendorChartData) appData.vendorChartData = result.vendorChartData;
           if (result.chartData) { chartData = result.chartData; localStorage.setItem('tft_cache_chart', JSON.stringify(chartData)); }
           if (result.monthTotal !== undefined) mtdTotal = result.monthTotal;
@@ -587,6 +592,18 @@
           const opt = document.createElement('option'); opt.value = v;
           datalist.appendChild(opt);
         });
+      }
+
+      // ADDED BACK: Populate HTML datalist so autocomplete works properly
+      const fruitDatalist = document.getElementById('fruitDatalist');
+      if (fruitDatalist) {
+        fruitDatalist.innerHTML = '';
+        if (appData.uniqueFruits) {
+          appData.uniqueFruits.forEach(f => {
+            const opt = document.createElement('option'); opt.value = f;
+            fruitDatalist.appendChild(opt);
+          });
+        }
       }
 
       // ---- 1. Sale Render ----
@@ -939,7 +956,9 @@
       if (type === 'fruitName') {
         receiptDraft[vIndex].fruits[fIndex].name = element.value;
       }
-      if (type === 'fruitQty') receiptDraft[vIndex].fruits[fIndex].qty = element.value;
+      if (type === 'fruitQty') {
+        receiptDraft[vIndex].fruits[fIndex].qty = element.value;
+      }
     }
 
     function renderReceiptDraft() {
