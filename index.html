@@ -89,7 +89,7 @@
     .cancel-btn { background: var(--border-color); color: var(--text-main); border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
     .save-btn { background: var(--primary-blue); color: white; border: none; border-radius: 8px; padding: 10px; font-weight: 600; cursor: pointer; text-align: center; }
 
-    /* Receipt Build UI - Compacted */
+    /* Receipt Build UI */
     .receipt-vendor-block { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: var(--card-bg); }
     .receipt-fruit-row { display: grid; grid-template-columns: 1fr 2fr 38px 38px; gap: 6px; align-items: end; margin-top: 6px; }
 
@@ -110,6 +110,20 @@
     .compact-summary-table td { font-weight: 600; color: var(--primary-blue); }
     [data-theme="dark"] .compact-summary-table th { background: #0f172a; }
 
+    /* Search As You Type Pill Recommendations */
+    .recs-container { border-radius: 8px; padding: 8px 10px 2px 10px; margin-top: 4px; grid-column: 1 / -1; }
+    .recs-container.warning { background-color: #fee2e2; }
+    .recs-container.info { background-color: #d1fae5; }
+    [data-theme="dark"] .recs-container.warning { background-color: #450a0a; border: 1px solid #7f1d1d; }
+    [data-theme="dark"] .recs-container.info { background-color: #064e3b; border: 1px solid #065f46; }
+    .recs-title { font-size: 11px; margin-bottom: 6px; font-weight: 600; }
+    .recs-title.warning { color: var(--danger-red); }
+    .recs-title.info { color: #047857; }
+    [data-theme="dark"] .recs-title.info { color: #34d399; }
+    .rec-pill { display: inline-block; background-color: #fca5a5; color: #7f1d1d; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-right: 6px; margin-bottom: 6px; cursor: pointer; transition: background-color 0.2s; }
+    .rec-pill:active { background-color: #f87171; }
+    [data-theme="dark"] .rec-pill { background-color: #7f1d1d; color: #fca5a5; }
+
     body.privacy-mode .amt-val, body.privacy-mode td { filter: blur(6px); opacity: 0.6; }
     body.privacy-mode input[type="number"], body.privacy-mode select { filter: blur(6px); opacity: 0.6; pointer-events: none; }
     body.privacy-mode #month-calc, body.privacy-mode #vendor-month-calc, body.privacy-mode #dashMonthTotal, body.privacy-mode #receiptTotalCarriage { filter: blur(6px); opacity: 0.6; }
@@ -118,17 +132,6 @@
 </head>
 <body class="privacy-mode">
 
-  <datalist id="fruitDatalist">
-    <option value="Anar">Anar</option>
-    <option value="Tarbooz">Tarbooz</option>
-    <option value="Sarda">Sarda</option>
-    <option value="Pineapple">Pineapple</option>
-    <option value="Amrood">Amrood</option>
-    <option value="Kharbooja">Kharbooja</option>
-    <option value="Dragon">Dragon</option>
-    <option value="Sharifa">Sharifa</option>
-    <option value="Daab">Daab</option>
-  </datalist>
   <datalist id="vendorDatalist"></datalist>
 
   <div id="login-screen">
@@ -361,8 +364,15 @@
         <div class="input-group" id="editReceiptDateGroup" style="display:none; grid-column: 1 / -1;"><label>New Date</label><input type="date" id="editReceiptDateInput"></div>
         <div class="input-group" id="editReceiptVendorGroup"><label>Vendor</label><input type="text" id="editReceiptVendorName" list="vendorDatalist" autocomplete="off"></div>
         <div class="input-group" id="editReceiptCarriageGroup"><label>Carriage (₹)</label><input type="number" id="editReceiptCarriage" step="any"></div>
-        <div class="input-group" id="editReceiptFruitGroup"><label>Fruit</label><input type="text" id="editReceiptFruitName" list="fruitDatalist" autocomplete="off"></div>
-        <div class="input-group" id="editReceiptQtyGroup"><label>Qty</label><input type="number" id="editReceiptFruitQty" step="any"></div>
+        
+        <!-- Modal Fruit Input with dynamic pill recommendations -->
+        <div class="input-group" id="editReceiptFruitGroup" style="grid-column: 1 / -1;">
+          <label>Fruit</label>
+          <input type="text" id="editReceiptFruitName" autocomplete="off" oninput="checkModalFruitRecs(this)">
+          <div id="editFruitRecsContainer" class="recs-container" style="display:none;"></div>
+        </div>
+        
+        <div class="input-group" id="editReceiptQtyGroup" style="grid-column: 1 / -1;"><label>Qty</label><input type="number" id="editReceiptFruitQty" step="any"></div>
       </div>
       <div class="modal-action-row">
         <button class="cancel-btn" onclick="closeReceiptEditModal()">Cancel</button>
@@ -374,7 +384,6 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyt1d1zgoSl1GhdzT0EMFOfTa-9qUofd7AHI4yi7PsGVoxC4W_MeZ8aT9KR5hOYrEWbWg/exec"; 
 
-    // Helper to safely extract local YYYY-MM-DD to avoid timezone shifting
     function toYMD(dateVal) {
       if (!dateVal) return null;
       const d = new Date(dateVal);
@@ -382,7 +391,7 @@
       return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
     }
 
-    let appData = { sale: [], payment: [], receipt: [], uniqueVendors: [], vendorChartData: {} };
+    let appData = { sale: [], payment: [], receipt: [], uniqueVendors: [], uniqueFruits: [], vendorChartData: {} };
     let chartData = {}; 
     let dashboardOpen = false;
     let currentTab = 'sale';
@@ -555,6 +564,7 @@
           if (result.paymentRows) { appData.payment = result.paymentRows; offsets.payment = 0; hasMore.payment = result.paymentHasMore; }
           if (result.receiptRows) { appData.receipt = result.receiptRows; offsets.receipt = 0; hasMore.receipt = result.receiptHasMore; }
           if (result.uniqueVendors) appData.uniqueVendors = result.uniqueVendors;
+          if (result.uniqueFruits) appData.uniqueFruits = result.uniqueFruits;
           if (result.vendorChartData) appData.vendorChartData = result.vendorChartData;
           if (result.chartData) { chartData = result.chartData; localStorage.setItem('tft_cache_chart', JSON.stringify(chartData)); }
           if (result.monthTotal !== undefined) mtdTotal = result.monthTotal;
@@ -804,6 +814,91 @@
        RECEIPTS DYNAMIC BUILDER & EDIT LOGIC
        ======================================================== */
 
+    function checkFruitRecs(element, vIndex, fIndex) {
+      const val = element.value.trim().toLowerCase();
+      const recContainer = document.getElementById(`fruit-recs-${vIndex}-${fIndex}`);
+      
+      if (!val) {
+        recContainer.style.display = 'none';
+        return;
+      }
+
+      const fruitsList = appData.uniqueFruits || [];
+      const exactMatch = fruitsList.find(f => f.toLowerCase() === val);
+      
+      if (exactMatch) {
+        recContainer.style.display = 'none';
+        return;
+      }
+
+      const matches = fruitsList.filter(f => f.toLowerCase().includes(val));
+      
+      if (matches.length > 0) {
+        recContainer.className = 'recs-container warning';
+        let pillsHtml = `<div class="recs-title warning">Similar names found: Did you mean to select one of these?</div>`;
+        matches.slice(0, 6).forEach(m => {
+          pillsHtml += `<span class="rec-pill" onclick="selectFruitRec('${m.replace(/'/g, "\\'")}', ${vIndex}, ${fIndex})">${m}</span>`;
+        });
+        recContainer.innerHTML = pillsHtml;
+        recContainer.style.display = 'block';
+      } else {
+        recContainer.className = 'recs-container info';
+        recContainer.innerHTML = `<div class="recs-title info">New Fruit: "${element.value.trim()}" does not exist and will be added.</div>`;
+        recContainer.style.display = 'block';
+      }
+    }
+
+    function selectFruitRec(fruitName, vIndex, fIndex) {
+      const input = document.getElementById(`fruit-input-${vIndex}-${fIndex}`);
+      if (input) {
+        input.value = fruitName;
+        receiptDraft[vIndex].fruits[fIndex].name = fruitName;
+      }
+      const recContainer = document.getElementById(`fruit-recs-${vIndex}-${fIndex}`);
+      if (recContainer) recContainer.style.display = 'none';
+    }
+
+    function checkModalFruitRecs(element) {
+      const val = element.value.trim().toLowerCase();
+      const recContainer = document.getElementById('editFruitRecsContainer');
+      
+      if (!val) {
+        recContainer.style.display = 'none';
+        return;
+      }
+
+      const fruitsList = appData.uniqueFruits || [];
+      const exactMatch = fruitsList.find(f => f.toLowerCase() === val);
+      
+      if (exactMatch) {
+        recContainer.style.display = 'none';
+        return;
+      }
+
+      const matches = fruitsList.filter(f => f.toLowerCase().includes(val));
+      
+      if (matches.length > 0) {
+        recContainer.className = 'recs-container warning';
+        let pillsHtml = `<div class="recs-title warning">Similar names found: Did you mean to select one of these?</div>`;
+        matches.slice(0, 6).forEach(m => {
+          pillsHtml += `<span class="rec-pill" onclick="selectModalFruitRec('${m.replace(/'/g, "\\'")}')">${m}</span>`;
+        });
+        recContainer.innerHTML = pillsHtml;
+        recContainer.style.display = 'block';
+      } else {
+        recContainer.className = 'recs-container info';
+        recContainer.innerHTML = `<div class="recs-title info">New Fruit: "${element.value.trim()}" does not exist and will be added.</div>`;
+        recContainer.style.display = 'block';
+      }
+    }
+
+    function selectModalFruitRec(fruitName) {
+      const input = document.getElementById('editReceiptFruitName');
+      if (input) input.value = fruitName;
+      const recContainer = document.getElementById('editFruitRecsContainer');
+      if (recContainer) recContainer.style.display = 'none';
+    }
+
     function addReceiptVendorBlock() {
       receiptDraft.push({ vendorName: '', carriage: 0, fruits: [{ name: '', qty: '' }] });
       renderReceiptDraft();
@@ -841,7 +936,9 @@
         receiptDraft.forEach(v => total += (Number(v.carriage) || 0));
         document.getElementById('receiptTotalCarriage').innerText = formatINR(total);
       }
-      if (type === 'fruitName') receiptDraft[vIndex].fruits[fIndex].name = element.value;
+      if (type === 'fruitName') {
+        receiptDraft[vIndex].fruits[fIndex].name = element.value;
+      }
       if (type === 'fruitQty') receiptDraft[vIndex].fruits[fIndex].qty = element.value;
     }
 
@@ -881,9 +978,10 @@
           html += `
           <div class="receipt-fruit-row">
             <div class="input-group"><label style="${fIndex > 0 ? 'display:none;' : ''}">Qty</label><input type="number" value="${fruit.qty}" step="any" oninput="updateReceiptDraft('fruitQty', ${vIndex}, ${fIndex}, this)"></div>
-            <div class="input-group"><label style="${fIndex > 0 ? 'display:none;' : ''}">Fruit</label><input type="text" list="fruitDatalist" value="${fruit.name}" oninput="updateReceiptDraft('fruitName', ${vIndex}, ${fIndex}, this)"></div>
+            <div class="input-group"><label style="${fIndex > 0 ? 'display:none;' : ''}">Fruit</label><input type="text" id="fruit-input-${vIndex}-${fIndex}" value="${fruit.name}" oninput="updateReceiptDraft('fruitName', ${vIndex}, ${fIndex}, this); checkFruitRecs(this, ${vIndex}, ${fIndex})" autocomplete="off"></div>
             ${fIndex === vendor.fruits.length - 1 ? `<button onclick="addReceiptFruitRow(${vIndex})" class="add-btn" style="height: 38px; font-size: 24px;">+</button>` : '<div></div>'}
             ${fIndex > 0 ? `<button onclick="removeReceiptFruitRow(${vIndex},${fIndex})" class="action-btn del-btn" style="height: 38px; justify-content: center; padding: 0;">&times;</button>` : '<div></div>'}
+            <div id="fruit-recs-${vIndex}-${fIndex}" class="recs-container" style="display:none;"></div>
           </div>`;
         });
 
@@ -1014,6 +1112,7 @@
 
     function closeReceiptEditModal() {
       document.getElementById('receiptEditModalOverlay').style.display = 'none';
+      document.getElementById('editFruitRecsContainer').style.display = 'none';
       activeReceiptEdit = null;
     }
 
